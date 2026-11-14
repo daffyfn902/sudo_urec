@@ -24,7 +24,10 @@ export function hoursInDay(): number[] {
 }
 
 export function todayISODate(): string {
-  return new Date().toISOString().slice(0, 10)
+  // Local date, not UTC: toISOString() would roll over to tomorrow in the evening (US time zones)
+  const d = new Date()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 
 export function formatDisplayDate(iso: string): string {

@@ -1,0 +1,27 @@
+{
+  "_note": "Bridge between the 6 summary zones the current UI shows (src/data/zones.ts) and the 25 real zones in zones.json. Each app zone's busyness is the capacity-weighted average of its open real zones. Pairings follow ZONE_TO_MAP_FOCUS in src/data/challenges.ts.",
+  "app_zones": {
+    "free-weights":        ["L2_fitness"],
+    "cardio":              ["L3_cardio_deck"],
+    "basketball-courts":   ["L2_mac1", "L2_mac2", "L2_mac3"],
+    "upstairs-strength":   ["L2_fitness"],
+    "indoor-track":        ["L4_track", "L3_walking_track"],
+    "functional-training": ["L4_stretch"]
+  },
+  "labels": {
+    "free-weights": "Free Weights",
+    "cardio": "Cardio",
+    "basketball-courts": "Basketball Courts",
+    "upstairs-strength": "Upstairs Strength",
+    "indoor-track": "Indoor Track",
+    "functional-training": "Functional Training"
+  },
+  "preference": {
+    "free-weights": "weights",
+    "cardio": "cardio",
+    "basketball-courts": "courts",
+    "upstairs-strength": "weights",
+    "indoor-track": "cardio",
+    "functional-training": "weights"
+  }
+}

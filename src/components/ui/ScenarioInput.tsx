@@ -47,7 +47,7 @@ export function ScenarioInput({
         </div>
         <div>
           <h3 className="text-sm font-semibold text-ink">What if…</h3>
-          <p className="text-[11px] text-ink-subtle">Mock scenario presets · ready for FastAPI</p>
+          <p className="text-[11px] text-ink-subtle">Type any what-if, or tap a preset</p>
         </div>
       </div>
 

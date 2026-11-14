@@ -102,13 +102,36 @@ export interface ForecastResult {
   isSimulated: true
 }
 
+/** Reply from the language layer (POST /api/ask) */
+export interface AskResult {
+  text: string
+  /** "Here's what I understood" summary line */
+  understood: string
+  /** Hourly data behind the answer, averaged over the zones asked about */
+  slots: Array<{ date: string; hour: number; pct: number }>
+}
+
+/** One real zone (of 25) at one hour, from GET /api/day: for the 3D map */
+export interface DayZoneReading {
+  zoneId: string
+  name: string
+  floor: number
+  hour: number
+  isOpen: boolean
+  occupancyPercent: number
+  headcount: number
+  status: TrafficStatus
+}
+
 export interface ApiService {
-  getCurrentOccupancy(scenarioId?: string | null): Promise<GymOverview>
+  getCurrentOccupancy(scenarioId?: string | null, hour?: number): Promise<GymOverview>
   getForecast(date: string, scenarioId?: string | null, preference?: WorkoutPreference): Promise<ForecastResult>
   getZoneDetails(zoneId: string, hour?: number, scenarioId?: string | null): Promise<ZoneDetails>
   applyScenario(text: string): Promise<ScenarioKnobs | null>
   getZones(): Promise<GymZone[]>
   getScenarios(): Promise<ScenarioKnobs[]>
+  ask(text: string): Promise<AskResult>
+  getDay(date: string, scenarioId?: string | null): Promise<DayZoneReading[]>
 }
 
 /** Explore Something New */

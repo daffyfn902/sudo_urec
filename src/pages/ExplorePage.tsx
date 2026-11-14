@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Compass, Dumbbell, Footprints, Shuffle, Sparkles, Volleyball } from 'lucide-react'
 import { ChallengeCard } from '../components/explore/ChallengeCard'
 import { useChallengeProgress } from '../hooks/useChallengeProgress'
+import { zoneOccupancyAt } from '../hooks/useGymData'
 import { buildAllZoneOccupancy } from '../data/mockData'
 import type {
   ChallengeInterest,
@@ -11,8 +12,9 @@ import type {
   RankedChallenge,
   ZoneOccupancy,
 } from '../data/types'
+import { api } from '../services/api'
 import { pickRecommendation } from '../services/recommend'
-import { getSimulatedCurrentHour } from '../utils/time'
+import { getSimulatedCurrentHour, todayISODate } from '../utils/time'
 
 const COMFORT_OPTIONS: Array<{
   id: ComfortLevel
@@ -65,7 +67,19 @@ export function ExplorePage() {
   /** Keep the completed card visible until the student asks for another */
   const [pinnedRanked, setPinnedRanked] = useState<RankedChallenge | null>(null)
   const [justCompletedId, setJustCompletedId] = useState<string | null>(null)
-  const [occupancyByZone] = useState(buildOccupancyMap)
+  // Start from the mock so the page renders instantly, then swap in the backend forecast
+  const [occupancyByZone, setOccupancyByZone] = useState(buildOccupancyMap)
+  useEffect(() => {
+    let cancelled = false
+    void Promise.all([api.getForecast(todayISODate()), api.getZones()]).then(([forecast, zones]) => {
+      if (cancelled) return
+      const list = zoneOccupancyAt(forecast, zones, getSimulatedCurrentHour())
+      if (list.length) setOccupancyByZone(Object.fromEntries(list.map((o) => [o.zoneId, o])))
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const preferences: ExplorePreferences | null = useMemo(() => {
     if (!comfort || !interest) return null

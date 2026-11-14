@@ -35,7 +35,8 @@
       radial-gradient(ellipse 75% 55% at 50% 38%, #f4f6fa 0%, transparent 62%),
       var(--canvas);
   }
-  canvas { display: block; position: absolute; inset: 0; touch-action: none; }
+  canvas { display: block; position: absolute; inset: 0; touch-action: none; cursor: grab; }
+  canvas:active { cursor: grabbing; }
 
   #head {
     position: absolute; left: 14px; top: 12px; right: 14px; z-index: 5;
@@ -148,6 +149,7 @@
     box-shadow: var(--shadow); display: grid; place-items: center;
   }
   #tools button:hover { color: var(--purple); border-color: rgba(69, 0, 132, 0.25); }
+  #tools button[aria-pressed="true"] { color: #fff; background: var(--purple); border-color: var(--purple); }
   #tools svg { width: 18px; height: 18px; }
 
   @media (max-width: 560px) {
@@ -190,11 +192,17 @@
   </div>
   <div id="help-wrap">
     <button id="help" type="button" aria-label="How to use" aria-expanded="false">?</button>
-    <div id="help-tip">Drag to rotate · pinch or scroll to zoom · tap a floor or use the controls below. Crowd levels are simulated.</div>
+    <div id="help-tip">Drag to move · hold Option and drag to rotate (or use the two buttons on the right) · two-finger scroll or pinch to zoom · tap a floor or use the controls below. Crowd levels are simulated.</div>
   </div>
 </div>
 <div id="labels"></div>
 <div id="tools">
+  <button id="mode-move" type="button" aria-label="Move the map" aria-pressed="true" title="Move: drag to slide the map (Option-drag rotates)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20"/></svg>
+  </button>
+  <button id="mode-rotate" type="button" aria-label="Rotate the map" aria-pressed="false" title="Rotate: drag to turn the map (Option-drag moves)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg>
+  </button>
   <button id="reset" type="button" aria-label="Reset view" title="Reset view">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
   </button>
@@ -1379,17 +1387,18 @@
 
   var renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-  renderer.setClearColor(0xE9EDF4, 1);
+  renderer.setClearColor(0x000000, 0);
   document.body.insertBefore(renderer.domElement, document.body.firstChild);
   var scene = new THREE.Scene();
-  scene.background = new THREE.Color(0xE9EDF4);
+  var ground = new THREE.Mesh(new THREE.CircleGeometry(340, 48), new THREE.MeshBasicMaterial({ map: radialTex('51,65,85', 0.2), transparent: true, depthWrite: false }));
+  ground.rotation.x = -Math.PI / 2; ground.position.set(0, -0.9, 0); ground.renderOrder = -1; scene.add(ground);
   scene.fog = new THREE.Fog(0xE9EDF4, 560, 1500);
-  var hemi = new THREE.HemisphereLight(0xffffff, 0xc5cedd, 0.85);
+  var hemi = new THREE.HemisphereLight(0xffffff, 0xc5cedd, 0.62);
   scene.add(hemi);
-  var key = new THREE.DirectionalLight(0xffffff, 0.7);
+  var key = new THREE.DirectionalLight(0xffffff, 0.5);
   key.position.set(90, 180, 70);
   scene.add(key);
-  var fill = new THREE.DirectionalLight(0xb8c4d8, 0.32);
+  var fill = new THREE.DirectionalLight(0xb8c4d8, 0.2);
   fill.position.set(-70, 50, -50);
   scene.add(fill);
   var camera = new THREE.PerspectiveCamera(26, 1, 1, 3000);
@@ -1397,15 +1406,35 @@
   controls.enableDamping = true; controls.dampingFactor = 0.07;
   controls.maxPolarAngle = Math.PI * 0.465; controls.minPolarAngle = 0.18;
   controls.minDistance = 24; controls.maxDistance = 900;
-  controls.enablePan = false;
+  // Click-drag (trackpad or mouse) moves the map across the floor. Rotate with right-drag, or hold Shift/Cmd/Ctrl while dragging.
+  controls.enablePan = true; controls.screenSpacePanning = false; controls.panSpeed = 1.1;
+  function setMode(mode) {   // what a plain drag does; the other action is on right-drag / Shift-drag
+    var move = mode === 'move';
+    controls.mouseButtons = { LEFT: move ? THREE.MOUSE.PAN : THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: move ? THREE.MOUSE.ROTATE : THREE.MOUSE.PAN };
+    controls.touches = { ONE: move ? THREE.TOUCH.PAN : THREE.TOUCH.ROTATE, TWO: move ? THREE.TOUCH.DOLLY_ROTATE : THREE.TOUCH.DOLLY_PAN };
+    document.getElementById('mode-move').setAttribute('aria-pressed', String(move));
+    document.getElementById('mode-rotate').setAttribute('aria-pressed', String(!move));
+  }
+  setMode('move');
+  // Hold Option/Alt while dragging to do the other action for that one drag (Shift/Cmd/Ctrl already do this)
+  var altSwapped = null;
+  renderer.domElement.addEventListener('pointerdown', function (e) {
+    if (e.pointerType !== 'mouse' || e.button !== 0 || !e.altKey || altSwapped) return;
+    altSwapped = controls.mouseButtons.LEFT;
+    controls.mouseButtons.LEFT = altSwapped === THREE.MOUSE.PAN ? THREE.MOUSE.ROTATE : THREE.MOUSE.PAN;
+  }, true);
+  window.addEventListener('pointerup', function () { if (altSwapped !== null) { controls.mouseButtons.LEFT = altSwapped; altSwapped = null; } });
+  window.addEventListener('pointercancel', function () { if (altSwapped !== null) { controls.mouseButtons.LEFT = altSwapped; altSwapped = null; } });
+  document.getElementById('mode-move').addEventListener('click', function () { setMode('move'); });
+  document.getElementById('mode-rotate').addEventListener('click', function () { setMode('rotate'); });
 
   function mat(F, kind) {
     var m, o;
     if (kind === 'glass')      { o = 0.28; m = new THREE.MeshBasicMaterial({ color: 0xCBD5E1, side: THREE.DoubleSide }); }
-    else if (kind === 'floor') { o = 1;    m = new THREE.MeshBasicMaterial({ color: 0xF1F4F8, side: THREE.DoubleSide }); }
+    else if (kind === 'floor') { o = 1;    m = new THREE.MeshLambertMaterial({ color: 0xF1F4F8, side: THREE.DoubleSide, map: surfaceTex('tile') }); }
     else if (kind === 'faint') { o = 0.14; m = new THREE.MeshBasicMaterial({ color: 0x94A3B8, side: THREE.DoubleSide }); }
-    else if (kind === 'zone')  { o = 0.72; m = new THREE.MeshBasicMaterial({ color: 0x16A66A, side: THREE.DoubleSide }); }
-    else if (kind === 'track') { o = 1;    m = new THREE.MeshBasicMaterial({ color: 0xE2E8F0, side: THREE.DoubleSide }); }
+    else if (kind === 'zone')  { o = 0.56; m = new THREE.MeshBasicMaterial({ color: 0x16A66A, side: THREE.DoubleSide }); }
+    else if (kind === 'track') { o = 1;    m = new THREE.MeshLambertMaterial({ color: 0xE2E8F0, side: THREE.DoubleSide }); }
     else if (kind === 'shadow'){ o = 0.18; m = new THREE.MeshBasicMaterial({ color: 0x334155, side: THREE.DoubleSide }); }
     else if (kind === 'dot')   { o = 0.92; m = new THREE.MeshBasicMaterial({ color: 0x475569 }); }
     else if (kind === 'line')  { o = 0.72; m = new THREE.LineBasicMaterial({ color: 0x64748B }); }
@@ -1422,9 +1451,11 @@
   }
   function slab(F, px, top, thick, m, lm, holePx) {
     var s = shapeFrom(px); if (holePx) s.holes.push(shapeFrom(holePx));
-    var g = new THREE.ExtrudeGeometry(s, { depth: thick, bevelEnabled: false, curveSegments: 1 });
-    var mesh = new THREE.Mesh(g, m); mesh.rotation.x = -Math.PI / 2; mesh.position.y = top - thick; F.group.add(mesh);
-    if (lm) { var e = new THREE.LineSegments(new THREE.EdgesGeometry(g, 30), lm); e.rotation.x = -Math.PI / 2; e.position.y = top - thick; F.group.add(e); }
+    var bev = thick > 0.4, bt = 0.1;   // main floor slabs get a soft bevelled edge
+    var g = new THREE.ExtrudeGeometry(s, { depth: thick, bevelEnabled: bev, bevelSize: 0.26, bevelThickness: bt, bevelSegments: 2, curveSegments: 1 });
+    var py = top - thick - (bev ? bt : 0);
+    var mesh = new THREE.Mesh(g, m); mesh.rotation.x = -Math.PI / 2; mesh.position.y = py; F.group.add(mesh);
+    if (lm) { var e = new THREE.LineSegments(new THREE.EdgesGeometry(g, bev ? 50 : 30), lm); e.rotation.x = -Math.PI / 2; e.position.y = py; F.group.add(e); }
     return mesh;
   }
   function wall(F, px, closed, y0, y1, m, lm, post) {
@@ -1467,6 +1498,495 @@
     mesh.userData.floor = F.n; pickables.push(mesh); return z;
   }
 
+  // =====================================================================
+  // Surfaces: small canvas textures (wood, water, rubber, tile...) so floors read as real materials.
+  // They sit under the crowd-colour overlay, which is semi-transparent so the colour coding still reads.
+  // =====================================================================
+  var TEX = {};
+  function rnd(a, b) { return a + Math.random() * (b - a); }
+  function canvasTex(size, draw, meters) {
+    var cv = document.createElement('canvas'); cv.width = cv.height = size; draw(cv.getContext('2d'), size);
+    var t = new THREE.CanvasTexture(cv); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(1 / meters, 1 / meters);
+    t.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy()); return t;
+  }
+  function surfaceTex(name) {
+    if (TEX[name]) return TEX[name];
+    var t;
+    if (name === 'tile') t = canvasTex(256, function (c, s) {
+      c.fillStyle = '#F4F6FA'; c.fillRect(0, 0, s, s); c.strokeStyle = '#E1E6EE'; c.lineWidth = 2; c.strokeRect(1, 1, s / 2 - 1, s / 2 - 1); c.strokeRect(s / 2 + 1, 1, s / 2 - 2, s / 2 - 1); c.strokeRect(1, s / 2 + 1, s / 2 - 1, s / 2 - 2); c.strokeRect(s / 2 + 1, s / 2 + 1, s / 2 - 2, s / 2 - 2);
+      for (var i = 0; i < 260; i++) { c.fillStyle = 'rgba(120,135,160,' + rnd(0.02, 0.06) + ')'; c.fillRect(rnd(0, s), rnd(0, s), 2, 2); }
+    }, 6);
+    else if (name === 'wood') t = canvasTex(256, function (c, s) {
+      var ph = s / 8;
+      for (var r = 0; r < 8; r++) {
+        var l = 82 + rnd(-4, 4); c.fillStyle = 'hsl(36,52%,' + l + '%)'; c.fillRect(0, r * ph, s, ph);
+        for (var g = 0; g < 7; g++) { c.strokeStyle = 'rgba(150,105,55,' + rnd(0.05, 0.12) + ')'; c.beginPath(); var y = r * ph + rnd(3, ph - 3); c.moveTo(0, y); c.lineTo(s, y + rnd(-1.5, 1.5)); c.stroke(); }
+        c.strokeStyle = 'rgba(120,80,40,0.28)'; c.lineWidth = 1.5; c.beginPath(); c.moveTo(0, r * ph); c.lineTo(s, r * ph); c.stroke();
+        var jx = rnd(20, s - 20); c.beginPath(); c.moveTo(jx, r * ph); c.lineTo(jx, (r + 1) * ph); c.stroke();
+      }
+    }, 5);
+    else if (name === 'water') t = canvasTex(256, function (c, s) {
+      var gr = c.createLinearGradient(0, 0, s, s); gr.addColorStop(0, '#A7E1F8'); gr.addColorStop(1, '#6FC8EF'); c.fillStyle = gr; c.fillRect(0, 0, s, s);
+      c.lineWidth = 2.2; c.lineCap = 'round';
+      for (var i = 0; i < 46; i++) {
+        var x = rnd(0, s), y = rnd(0, s), w = rnd(18, 44), a = rnd(0.16, 0.34);
+        for (var ox = -s; ox <= s; ox += s) for (var oy = -s; oy <= s; oy += s) { c.strokeStyle = 'rgba(255,255,255,' + a + ')'; c.beginPath(); c.moveTo(x + ox, y + oy); c.bezierCurveTo(x + ox + w * 0.3, y + oy - 8, x + ox + w * 0.7, y + oy + 8, x + ox + w, y + oy); c.stroke(); }
+      }
+    }, 10);
+    else if (name === 'rubber') t = canvasTex(256, function (c, s) {
+      c.fillStyle = '#D9DEE6'; c.fillRect(0, 0, s, s);
+      for (var i = 0; i < 900; i++) { c.fillStyle = Math.random() < 0.5 ? 'rgba(120,132,150,0.28)' : 'rgba(255,255,255,0.45)'; var r = rnd(0.8, 1.8); c.beginPath(); c.arc(rnd(0, s), rnd(0, s), r, 0, 6.3); c.fill(); }
+    }, 4);
+    else if (name === 'cafe') t = canvasTex(256, function (c, s) {
+      var n = 4, w = s / n; for (var i = 0; i < n; i++) for (var j = 0; j < n; j++) { c.fillStyle = (i + j) % 2 ? '#EBDDC6' : '#F3E8D6'; c.fillRect(i * w, j * w, w, w); }
+      c.strokeStyle = '#D5C3A4'; c.lineWidth = 2; for (var k = 0; k <= n; k++) { c.beginPath(); c.moveTo(k * w, 0); c.lineTo(k * w, s); c.stroke(); c.beginPath(); c.moveTo(0, k * w); c.lineTo(s, k * w); c.stroke(); }
+    }, 5);
+    else if (name === 'padmat') t = canvasTex(256, function (c, s) {
+      c.fillStyle = '#D3DFEE'; c.fillRect(0, 0, s, s); c.strokeStyle = '#B9C9DD'; c.lineWidth = 3; c.strokeRect(2, 2, s / 2 - 2, s / 2 - 2); c.strokeRect(s / 2 + 2, 2, s / 2 - 4, s / 2 - 2); c.strokeRect(2, s / 2 + 2, s / 2 - 2, s / 2 - 4); c.strokeRect(s / 2 + 2, s / 2 + 2, s / 2 - 4, s / 2 - 4);
+    }, 5);
+    return (TEX[name] = t);
+  }
+  function texMat(F, name) {
+    var m = new THREE.MeshLambertMaterial({ map: surfaceTex(name), side: THREE.DoubleSide });
+    m.color.multiplyScalar(1 - 0.016 * (F.n - 1)); m.transparent = true; m.depthWrite = true; m.userData.base = 1; F.mats.push(m); return m;
+  }
+  function texFor(id) {
+    var k = kindFor(id);
+    return k === 'pool' ? 'water' : (k === 'court' || k === 'racq' || k === 'mats' || k === 'class') ? 'wood' : k === 'gym' ? 'rubber' : k === 'cafe' ? 'cafe' : k === 'climb' ? 'padmat' : null;
+  }
+  var _shadowTex = null;
+  function radialTex(rgb, a) {
+    var cv = document.createElement('canvas'); cv.width = cv.height = 128; var c = cv.getContext('2d'), g = c.createRadialGradient(64, 64, 0, 64, 64, 64);
+    g.addColorStop(0, 'rgba(' + rgb + ',' + a + ')'); g.addColorStop(0.55, 'rgba(' + rgb + ',' + (a * 0.45) + ')'); g.addColorStop(1, 'rgba(' + rgb + ',0)'); c.fillStyle = g; c.fillRect(0, 0, 128, 128);
+    return new THREE.CanvasTexture(cv);
+  }
+  function shadowTexture() { return _shadowTex || (_shadowTex = radialTex('0,0,0', 1)); }
+
+  // =====================================================================
+  // People + props. Instanced and lit: one draw call per body part per floor.
+  // Figures have bending knees and elbows, hair, hands and shoes. Props are small modelled shapes
+  // (rounded boxes, cylinders, tori) merged with vertex colours, not plain boxes.
+  // =====================================================================
+  var PERSON_SCALE = 1.55, PROP_SCALE = 1.35, FEET_Y = 0.3, PROP_Y = 0.24, TWO_PI = Math.PI * 2, clockT = 0, crowds = [];
+  function pick(a) { return a[Math.floor(Math.random() * a.length)]; }
+  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+  var WHITE = new THREE.Color(0xffffff);
+
+  // --- geometry helpers ---
+  function capsule(r, len, seg, r2) {                      // r2 = optional different radius for the top cap (taper)
+    var pts = [], h = len / 2 - r, i, a;
+    for (i = 0; i <= seg; i++) { a = -Math.PI / 2 + (Math.PI / 2) * i / seg; pts.push(new THREE.Vector2(Math.max(0, r * Math.cos(a)), -h + r * Math.sin(a))); }
+    for (i = 0; i <= seg; i++) { a = (Math.PI / 2) * i / seg; pts.push(new THREE.Vector2((r2 || r) * Math.cos(a), h + (r2 || r) * Math.sin(a))); }
+    return new THREE.LatheGeometry(pts, 12);
+  }
+  function rbox(w, h, d, r, seg) {                          // rounded box
+    seg = seg || 4; r = Math.min(r, w / 2 - 1e-4, h / 2 - 1e-4, d / 2 - 1e-4);
+    var g = new THREE.BoxGeometry(w, h, d, seg, seg, seg), pos = g.attributes.position, nor = g.attributes.normal;
+    var hx = w / 2 - r, hy = h / 2 - r, hz = d / 2 - r, v = new THREE.Vector3(), c = new THREE.Vector3(), n = new THREE.Vector3();
+    for (var i = 0; i < pos.count; i++) {
+      v.fromBufferAttribute(pos, i); c.set(clamp(v.x, -hx, hx), clamp(v.y, -hy, hy), clamp(v.z, -hz, hz)); n.subVectors(v, c);
+      if (n.lengthSq() > 1e-12) { n.normalize(); v.copy(c).addScaledVector(n, r); nor.setXYZ(i, n.x, n.y, n.z); }
+      pos.setXYZ(i, v.x, v.y, v.z);
+    }
+    return g;
+  }
+  function cylG(rt, rb, h, seg, open) { return new THREE.CylinderGeometry(rt, rb, h, seg || 10, 1, !!open); }
+  function xf(x, y, z, rx, ry, rz) { var m = new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(rx || 0, ry || 0, rz || 0)); m.setPosition(x || 0, y || 0, z || 0); return m; }
+  function part(g, c, x, y, z, rx, ry, rz) { return { g: g, c: new THREE.Color(c), m: xf(x, y, z, rx, ry, rz) }; }
+  function mergeParts(parts) {                              // merge geometries, baking each part's colour into vertex colours
+    var pos = [], nor = [], col = [];
+    parts.forEach(function (p) {
+      var g = p.g.index ? p.g.toNonIndexed() : p.g.clone(); if (p.m) g.applyMatrix4(p.m);
+      var a = g.attributes.position.array, n = g.attributes.normal.array, c = p.c || WHITE, i;
+      for (i = 0; i < a.length; i++) { pos.push(a[i]); nor.push(n[i]); }
+      for (i = 0; i < a.length / 3; i++) col.push(c.r, c.g, c.b);
+    });
+    var out = new THREE.BufferGeometry();
+    out.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); out.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); out.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    out.computeBoundingSphere(); return out;
+  }
+
+  // --- the figure ---
+  var G = (function () {
+    var torso = capsule(0.3, 0.86, 6); torso.scale(1.15, 1, 0.72); torso.translate(0, 1.2, 0);
+    var head = new THREE.SphereGeometry(0.23, 14, 12); head.scale(0.95, 1.08, 1); head.translate(0, 1.85, 0);
+    var hair = new THREE.SphereGeometry(0.248, 14, 10, 0, TWO_PI, 0, Math.PI * 0.6); hair.rotateX(-0.5); hair.translate(0, 1.87, -0.012);
+    var uarm = capsule(0.085, 0.4, 5); uarm.translate(0, -0.2, 0);                         // pivots at the shoulder
+    var farm = mergeGeo2(capsule(0.07, 0.36, 5), (function () { var s = new THREE.SphereGeometry(0.078, 8, 6); s.translate(0, -0.2, 0); return s; })()); farm.translate(0, -0.18, 0); // pivots at the elbow, hand at the end
+    var thigh = capsule(0.125, 0.52, 5); thigh.translate(0, -0.26, 0);                      // pivots at the hip
+    var shin = capsule(0.095, 0.5, 5); shin.translate(0, -0.24, 0);                         // pivots at the knee
+    var shoe = rbox(0.17, 0.1, 0.34, 0.045); shoe.translate(0, -0.46 + 0.02, 0.07);
+    var shadow = new THREE.CircleGeometry(0.75, 20); shadow.rotateX(-Math.PI / 2); shadow.translate(0, 0.02, 0);
+    return { torso: torso, head: head, hair: hair, uarm: uarm, farm: farm, thigh: thigh, shin: shin, shoe: shoe, shadow: shadow };
+  })();
+  function mergeGeo2(a, b) { return mergeParts([{ g: a }, { g: b }]); }
+  var SHIRTS = [0x334155, 0x450084, 0x1E3A8A, 0x64748B, 0x7C3AED, 0x0F172A, 0xE2E8F0, 0x0EA5E9, 0xBE185D, 0x475569, 0x0D9488].map(function (c) { return new THREE.Color(c); });
+  var SKINS = [0xF1C9A5, 0xDDA77F, 0xB87D56, 0x8A5A3C, 0x5E3B26].map(function (c) { return new THREE.Color(c); });
+  var PANTS = [0x1E293B, 0x334155, 0x0F172A, 0x475569, 0x3F3F46, 0x1D4ED8].map(function (c) { return new THREE.Color(c); });
+  var HAIRS = [0x1F1308, 0x3B2314, 0x7C4A1D, 0xC9A55C, 0x111111, 0x5B3A29, 0x8B8B8B].map(function (c) { return new THREE.Color(c); });
+  var SHOES = [0xF8FAFC, 0x111827, 0x64748B, 0x2563EB, 0xF1F5F9].map(function (c) { return new THREE.Color(c); });
+
+  function makePerson(F) {
+    var list = F.people || (F.people = []);
+    var p = { F: F, i: list.length, x: 0, z: 0, tx: 0, tz: 0, speed: 1, wait: 0, phase: Math.random() * TWO_PI, heading: Math.random() * TWO_PI,
+      fade: 0, shown: false, size: 0.92 + Math.random() * 0.16, shirt: pick(SHIRTS), skin: pick(SKINS), pants: pick(PANTS), hair: pick(HAIRS), shoe: pick(SHOES),
+      act: 'walk', t: 0, dur: 0, stn: null, goStn: null, seed: Math.random(), off: Math.random() * 0.4, fixed: false, wantStn: false, skip: false, baseLift: 0 };
+    list.push(p); return p;
+  }
+
+  // --- props (modelled shapes, merged per type) ---
+  var BUILD = {
+    treadmill: function () { return mergeParts([
+      part(rbox(0.9, 0.22, 2.2, 0.07), 0x64748B, 0, 0.11, 0), part(rbox(0.66, 0.03, 1.9, 0.012), 0x1F2937, 0, 0.235, -0.02),
+      part(rbox(0.07, 0.1, 2.1, 0.03), 0xCBD5E1, -0.46, 0.22, 0), part(rbox(0.07, 0.1, 2.1, 0.03), 0xCBD5E1, 0.46, 0.22, 0),
+      part(cylG(0.035, 0.035, 1.0), 0xCBD5E1, -0.38, 0.72, 0.92), part(cylG(0.035, 0.035, 1.0), 0xCBD5E1, 0.38, 0.72, 0.92),
+      part(rbox(0.82, 0.3, 0.12, 0.04), 0x0F172A, 0, 1.22, 0.92, -0.4), part(rbox(0.62, 0.18, 0.02, 0.01), 0x38BDF8, 0, 1.235, 0.985, -0.4)
+    ]); },
+    rack: function () { return mergeParts([
+      part(rbox(1.3, 0.08, 1.0, 0.03), 0x475569, 0, 0.04, 0), part(cylG(0.05, 0.05, 2.1), 0xCBD5E1, -0.6, 1.05, -0.35), part(cylG(0.05, 0.05, 2.1), 0xCBD5E1, 0.6, 1.05, -0.35),
+      part(rbox(1.3, 0.1, 0.15, 0.04), 0x64748B, 0, 2.1, -0.35), part(rbox(0.5, 1.5, 0.35, 0.04), 0x64748B, 0, 0.85, -0.35), part(rbox(0.46, 0.06, 0.3, 0.02), 0xF97316, 0, 1.2, -0.35),
+      part(cylG(0.02, 0.02, 0.5), 0x1F2937, 0, 1.7, -0.1, Math.PI / 2, 0, Math.PI / 2)
+    ]); },
+    dbrack: function () {
+      var ps = [part(rbox(1.4, 0.05, 0.5, 0.02), 0x64748B, 0, 0.4, 0), part(rbox(1.4, 0.05, 0.5, 0.02), 0x64748B, 0, 0.8, 0), part(rbox(0.06, 0.85, 0.5, 0.02), 0x475569, -0.68, 0.42, 0), part(rbox(0.06, 0.85, 0.5, 0.02), 0x475569, 0.68, 0.42, 0)];
+      [0.4, 0.8].forEach(function (y) { for (var k = 0; k < 6; k++) { var x = -0.55 + k * 0.22; ps.push(part(cylG(0.018, 0.018, 0.2), 0xCBD5E1, x, y + 0.08, 0, 0, 0, Math.PI / 2)); ps.push(part(cylG(0.07, 0.07, 0.05), 0x111827, x - 0.1, y + 0.08, 0, 0, 0, Math.PI / 2)); ps.push(part(cylG(0.07, 0.07, 0.05), 0x111827, x + 0.1, y + 0.08, 0, 0, 0, Math.PI / 2)); } });
+      return mergeParts(ps);
+    },
+    mat: function () { return mergeParts([part(rbox(0.9, 0.05, 2.0, 0.02), 0xffffff, 0, 0.025, 0)]); },
+    chair: function () { return mergeParts([
+      part(rbox(0.52, 0.08, 0.52, 0.03), 0x475569, 0, 0.5, 0), part(rbox(0.52, 0.5, 0.06, 0.03), 0x475569, 0, 0.8, -0.23),
+      part(cylG(0.025, 0.025, 0.5), 0xCBD5E1, -0.21, 0.25, -0.21), part(cylG(0.025, 0.025, 0.5), 0xCBD5E1, 0.21, 0.25, -0.21), part(cylG(0.025, 0.025, 0.5), 0xCBD5E1, -0.21, 0.25, 0.21), part(cylG(0.025, 0.025, 0.5), 0xCBD5E1, 0.21, 0.25, 0.21)
+    ]); },
+    table: function () { return mergeParts([part(cylG(0.62, 0.62, 0.05, 28), 0xC9A27A, 0, 0.77, 0), part(cylG(0.05, 0.05, 0.75, 8), 0x94A3B8, 0, 0.375, 0), part(cylG(0.32, 0.34, 0.04, 18), 0x64748B, 0, 0.02, 0)]); },
+    bike: function () { return mergeParts([
+      part(rbox(0.6, 0.05, 0.14, 0.02), 0x334155, 0, 0.03, 0.5), part(rbox(0.6, 0.05, 0.14, 0.02), 0x334155, 0, 0.03, -0.5), part(rbox(0.1, 0.05, 1.1, 0.02), 0x334155, 0, 0.03, 0),
+      part(cylG(0.04, 0.04, 1.0), 0x0EA5E9, 0, 0.55, -0.05, 0.3), part(cylG(0.03, 0.03, 0.55), 0xCBD5E1, 0, 0.72, -0.3), part(rbox(0.26, 0.07, 0.32, 0.03), 0x111827, 0, 0.98, -0.32),
+      part(cylG(0.03, 0.03, 0.6), 0xCBD5E1, 0, 0.85, 0.38, -0.3), part(cylG(0.02, 0.02, 0.5), 0x111827, 0, 1.12, 0.45, 0, 0, Math.PI / 2), part(cylG(0.26, 0.26, 0.07, 20), 0x94A3B8, 0, 0.34, 0.38, 0, 0, Math.PI / 2)
+    ]); },
+    hoop: function () { return mergeParts([                 // faces +x
+      part(rbox(0.8, 0.2, 0.8, 0.05), 0x334155, -0.1, 0.1, 0), part(cylG(0.08, 0.1, 3.5), 0x64748B, 0, 1.75, 0), part(cylG(0.13, 0.13, 1.2), 0x2563EB, 0, 0.6, 0),
+      part(rbox(0.8, 0.12, 0.12, 0.04), 0x64748B, 0.4, 3.1, 0), part(rbox(0.1, 1.0, 1.7, 0.04), 0xF8FAFC, 0.8, 3.3, 0), part(rbox(0.11, 0.34, 0.56, 0.02), 0xF97316, 0.8, 3.1, 0),
+      part((function () { var t = new THREE.TorusGeometry(0.23, 0.022, 8, 20); t.rotateX(Math.PI / 2); return t; })(), 0xF97316, 1.12, 3.02, 0), part(cylG(0.23, 0.14, 0.38, 12, true), 0xF1F5F9, 1.12, 2.82, 0)
+    ]); }
+  };
+  var MODELS = {};
+  function modelGeo(key) { return MODELS[key] || (MODELS[key] = BUILD[key]()); }
+  function addProp(F, key, x, z, h, tint, y, scale) { (F.props || (F.props = [])).push({ geo: typeof key === 'string' ? modelGeo(key) : key, key: typeof key === 'string' ? key : key.uuid, x: x, y: PROP_Y + (y || 0), z: z, h: h || 0, s: scale || PROP_SCALE, c: new THREE.Color(tint != null ? tint : 0xffffff) }); }
+
+  // Build the instanced meshes once a floor's people and props are known.
+  function finalizePeople(F) {
+    var list = F.people || [], n = list.length, i;
+    function inst(geo, mt, count, dynamic) {
+      var im = new THREE.InstancedMesh(geo, mt, count); im.frustumCulled = false;
+      if (dynamic) im.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      var z = new THREE.Matrix4().makeScale(0, 0, 0); for (var k = 0; k < count; k++) im.setMatrixAt(k, z);
+      F.group.add(im); return im;
+    }
+    if (n) {
+      var pm = new THREE.MeshLambertMaterial({ color: 0xffffff }); pm.transparent = true; pm.userData.base = 1; F.mats.push(pm);
+      var shMat = mat(F, 'shadow'); shMat.color.setHex(0x000000); shMat.map = shadowTexture(); shMat.userData.base = 0.42; shMat.opacity = 0.42;
+      F.parts = { body: inst(G.torso, pm, n, 1), head: inst(G.head, pm, n, 1), hair: inst(G.hair, pm, n, 1), uarm: inst(G.uarm, pm, 2 * n, 1), farm: inst(G.farm, pm, 2 * n, 1),
+        thigh: inst(G.thigh, pm, 2 * n, 1), shin: inst(G.shin, pm, 2 * n, 1), shoe: inst(G.shoe, pm, 2 * n, 1), shadow: inst(G.shadow, shMat, n, 1) };
+      for (i = 0; i < n; i++) {
+        var p = list[i], P = F.parts;
+        P.body.setColorAt(i, p.shirt); P.head.setColorAt(i, p.skin); P.hair.setColorAt(i, p.hair);
+        for (var s = 0; s < 2; s++) { P.uarm.setColorAt(2 * i + s, p.skin); P.farm.setColorAt(2 * i + s, p.skin); P.thigh.setColorAt(2 * i + s, p.pants); P.shin.setColorAt(2 * i + s, p.pants); P.shoe.setColorAt(2 * i + s, p.shoe); }
+      }
+      ['body', 'head', 'hair', 'uarm', 'farm', 'thigh', 'shin', 'shoe'].forEach(function (k) { F.parts[k].instanceColor.needsUpdate = true; });
+    }
+    var pr = F.props || [];
+    if (pr.length) {
+      var propMat = new THREE.MeshLambertMaterial({ color: 0xffffff, vertexColors: true, side: THREE.DoubleSide }); propMat.transparent = true; propMat.userData.base = 1; F.mats.push(propMat);
+      var groups = {}; pr.forEach(function (o) { (groups[o.key] || (groups[o.key] = { geo: o.geo, items: [] })).items.push(o); });
+      var mt = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), pv = new THREE.Vector3(), sv = new THREE.Vector3();
+      Object.keys(groups).forEach(function (k) {
+        var g = groups[k], im = new THREE.InstancedMesh(g.geo, propMat, g.items.length); im.frustumCulled = false;
+        g.items.forEach(function (o, j) { e.set(0, o.h, 0); q.setFromEuler(e); pv.set(o.x, o.y, o.z); sv.set(o.s, o.s, o.s); mt.compose(pv, q, sv); im.setMatrixAt(j, mt); im.setColorAt(j, o.c); });
+        im.instanceColor.needsUpdate = true; F.group.add(im);
+      });
+    }
+  }
+
+  // ---------- pose + drawing ----------
+  var _P = new THREE.Matrix4(), _L = new THREE.Matrix4(), _M = new THREE.Matrix4(), _A = new THREE.Matrix4(), _B = new THREE.Matrix4(), _Z = new THREE.Matrix4().makeScale(0, 0, 0),
+      _q = new THREE.Quaternion(), _e = new THREE.Euler(), _pos = new THREE.Vector3(), _sv = new THREE.Vector3();
+  var PART_KEYS = ['body', 'head', 'hair', 'uarm', 'farm', 'thigh', 'shin', 'shoe', 'shadow'];
+  function resetPose(p) { p.lift = 0; p.pitch = 0; p.roll = 0; p.lA = 0; p.rA = 0; p.lAz = 0; p.rAz = 0; p.lL = 0; p.rL = 0; p.lLz = 0; p.rLz = 0; p.lE = 0.12; p.rE = 0.12; p.lK = 0.04; p.rK = 0.04; p.baseLift = 0; }
+  function chain(up, lo, shoes, idx, ox, oy, rx, rz, len, bend) {     // upper segment swings at the joint, lower segment bends at its end
+    _L.makeRotationX(rx); if (rz) { _M.makeRotationZ(rz); _L.premultiply(_M); } _L.setPosition(ox, oy, 0);
+    _A.multiplyMatrices(_P, _L); up.setMatrixAt(idx, _A);
+    _L.makeRotationX(bend); _L.setPosition(0, -len, 0); _B.multiplyMatrices(_A, _L); lo.setMatrixAt(idx, _B); if (shoes) shoes.setMatrixAt(idx, _B);
+  }
+  function writePerson(p) {
+    var P = p.F.parts, i = p.i, s = PERSON_SCALE * p.size * p.fade;
+    _pos.set(p.x, FEET_Y + p.lift + p.baseLift, p.z); _e.set(p.pitch, p.heading, p.roll, 'YXZ'); _q.setFromEuler(_e); _sv.set(s, s, s); _P.compose(_pos, _q, _sv);
+    P.body.setMatrixAt(i, _P); P.head.setMatrixAt(i, _P); P.hair.setMatrixAt(i, _P);
+    chain(P.uarm, P.farm, null, 2 * i, -0.42, 1.5, p.lA, p.lAz, 0.4, -p.lE); chain(P.uarm, P.farm, null, 2 * i + 1, 0.42, 1.5, p.rA, p.rAz, 0.4, -p.rE);
+    chain(P.thigh, P.shin, P.shoe, 2 * i, -0.15, 0.92, p.lL, p.lLz, 0.52, p.lK); chain(P.thigh, P.shin, P.shoe, 2 * i + 1, 0.15, 0.92, p.rL, p.rLz, 0.52, p.rK);
+    var sh = p.lift > 2.2 ? 0 : s * (1 - Math.min(0.5, p.lift * 0.25));
+    _M.makeScale(sh, sh, sh); _M.setPosition(p.x, FEET_Y + Math.max(0, p.baseLift), p.z); P.shadow.setMatrixAt(i, _M);
+    p.shown = true; p.F.dirty = true;
+  }
+  function hidePerson(p) {
+    var P = p.F.parts, i = p.i; ['body', 'head', 'hair', 'shadow'].forEach(function (k) { P[k].setMatrixAt(i, _Z); });
+    ['uarm', 'farm', 'thigh', 'shin', 'shoe'].forEach(function (k) { P[k].setMatrixAt(2 * i, _Z); P[k].setMatrixAt(2 * i + 1, _Z); });
+    p.shown = false; p.F.dirty = true;
+  }
+  function turnTo(p, target, dt, rate) {
+    var diff = ((target - p.heading + Math.PI) % TWO_PI + TWO_PI) % TWO_PI - Math.PI;
+    p.heading += diff * Math.min(1, dt * (rate || 8));
+  }
+  function walkPose(p, speed, dt) {
+    p.phase += speed * dt * 2.4;
+    var s = Math.sin(p.phase), c = Math.cos(p.phase), amp = Math.min(0.95, 0.3 + speed * 0.18), run = speed > 2.2 ? 1 : 0;
+    p.lL = s * amp; p.rL = -s * amp; p.lA = -s * amp * 0.9; p.rA = s * amp * 0.9;
+    p.lK = 0.06 + Math.max(0, -c) * (0.4 + amp * 0.9); p.rK = 0.06 + Math.max(0, c) * (0.4 + amp * 0.9);          // knee bends as the leg swings forward
+    p.lE = 0.2 + Math.max(0, -p.lA) * 0.6 + run * 0.9; p.rE = 0.2 + Math.max(0, -p.rA) * 0.6 + run * 0.9;
+    p.lift = Math.abs(Math.cos(p.phase)) * 0.05 * Math.min(1.6, speed);
+    if (run) { p.pitch = 0.14; p.lA *= 1.3; p.rA *= 1.3; }
+  }
+
+  // ---------- activities (each sets the pose for this frame) ----------
+  var ACT = {
+    idle: function (p) { p.lA = 0.05 * Math.sin(clockT * 1.3 + p.seed * 9); p.rA = -p.lA; p.roll = 0.015 * Math.sin(clockT * 0.9 + p.seed * 7); },
+    jump: function (p) { var s = Math.sin(Math.PI * Math.min(1, p.t / p.dur)); p.lift = s * 1.3; p.lA = p.rA = -2.7 * s; p.lE = p.rE = 0.35 * s; p.lL = 0.5 * s; p.rL = 0.1 * s; p.lK = p.rK = 1.0 * s; },
+    swing: function (p) { var u = Math.min(1, p.t / p.dur); p.rA = -2.4 + 3.6 * u; p.rE = 0.4 * (1 - u); p.lA = -0.7; p.lE = 0.8; p.roll = 0.3 * Math.sin(Math.PI * u); p.lL = -0.3; p.rL = 0.25; p.lK = 0.3; p.rK = 0.15; },
+    run: function (p, dt) { walkPose(p, 2.4, dt); },
+    press: function (p) { var u = 0.5 - 0.5 * Math.cos(clockT * 2.4 + p.seed * 6); p.lA = p.rA = -(1.3 + 1.7 * u); p.lAz = -0.18 * u; p.rAz = 0.18 * u; p.lE = p.rE = 0.15 + 1.7 * (1 - u); p.lift = 0.03 * u; },
+    curl: function (p) { var u = 0.5 - 0.5 * Math.cos(clockT * 2.8 + p.seed * 6); p.lA = p.rA = 0.05; p.lE = 0.1 + 2.3 * u; p.rE = 0.1 + 2.3 * (1 - u); },
+    jacks: function (p) { var ph = (clockT + p.off) * TWO_PI * 1.1, s = 0.5 - 0.5 * Math.cos(ph); p.lAz = -Math.PI * 0.9 * s; p.rAz = Math.PI * 0.9 * s; p.lLz = -0.38 * s; p.rLz = 0.38 * s; p.lift = 0.3 * Math.pow(Math.sin(ph), 2); p.lK = p.rK = 0.1 + 0.4 * Math.pow(Math.sin(ph), 2); },
+    flow: function (p) { var ph = (clockT + p.off) * 0.7, u = 0.5 - 0.5 * Math.cos(ph); p.lA = p.rA = -Math.PI * u; p.lE = p.rE = 0.2; p.roll = 0.12 * Math.sin(ph * 0.5); p.lK = p.rK = 0.1 + 0.15 * u; },
+    stretch: function (p) { var ph = clockT * 0.6 + p.seed * 3, s = Math.sin(ph); p.roll = 0.32 * s; p.rAz = 2.9 * (0.5 + 0.5 * s); p.lAz = -2.9 * (0.5 - 0.5 * s); p.lE = p.rE = 0.15; },
+    bike: function (p) { var ph = (clockT + p.off) * 5.2, s = Math.sin(ph); p.baseLift = -0.12; p.lL = -0.55 + 0.55 * s; p.rL = -0.55 - 0.55 * s; p.lK = clamp(1.0 - 0.7 * s, 0.2, 2); p.rK = clamp(1.0 + 0.7 * s, 0.2, 2); p.pitch = 0.3; p.lA = p.rA = -1.1; p.lE = p.rE = 0.6; p.lift = 0.02 * Math.abs(s); },
+    sit: function (p) { p.lL = p.rL = -1.5; p.lK = p.rK = 1.5; p.lA = p.rA = -0.5 + 0.1 * Math.sin(clockT * 1.1 + p.seed * 8); p.lE = p.rE = 0.9; p.roll = 0.02 * Math.sin(clockT * 0.7 + p.seed * 5); },
+    swim: function (p, dt, c) {
+      p.phase += dt * 4.2; p.pitch = Math.PI / 2; p.lift = 0.5; p.lA = p.phase; p.rA = p.phase + Math.PI;
+      p.lE = 0.9 * Math.max(0, Math.sin(p.phase)); p.rE = 0.9 * Math.max(0, -Math.sin(p.phase));      // elbows bend while the arm recovers over the water
+      var f = Math.sin(p.phase * 2.2) * 0.35; p.lL = f; p.rL = -f; p.lK = 0.2 + Math.max(0, -f); p.rK = 0.2 + Math.max(0, f);
+      var a = p.sd * p.speed * dt;
+      if (c.axis === 'x') {
+        p.x += a; p.z = p.lane; if (p.x > c.hiA) { p.x = c.hiA; p.sd = -1; } if (p.x < c.loA) { p.x = c.loA; p.sd = 1; }
+        turnTo(p, p.sd > 0 ? Math.PI / 2 : -Math.PI / 2, dt, 6);
+      } else {
+        p.z += a; p.x = p.lane; if (p.z > c.hiA) { p.z = c.hiA; p.sd = -1; } if (p.z < c.loA) { p.z = c.loA; p.sd = 1; }
+        turnTo(p, p.sd > 0 ? 0 : Math.PI, dt, 6);
+      }
+    },
+    climb: function (p, dt) {
+      p.phase += dt * 3.2; p.cy += p.cd * (p.cd > 0 ? 0.9 : 1.6) * dt;
+      if (p.cy > 5.2) { p.cy = 5.2; p.cd = -1; } if (p.cy < 0.2) { p.cy = 0.2; p.cd = 1; }
+      var s = Math.sin(p.phase); p.lift = p.cy; p.lA = -Math.PI + 0.55 * s; p.rA = -Math.PI - 0.55 * s; p.lE = 0.3 + 0.5 * Math.max(0, -s); p.rE = 0.3 + 0.5 * Math.max(0, s);
+      p.lL = -0.7 * Math.max(0, s); p.rL = -0.7 * Math.max(0, -s); p.lK = 0.1 + 1.0 * Math.max(0, s); p.rK = 0.1 + 1.0 * Math.max(0, -s);
+    }
+  };
+
+  // ---------- behaviour ----------
+  function chooseNext(c, p) {
+    if (p.wantStn && !p.skip) {
+      var free = c.stations.filter(function (s) { return !s.owner || s.owner === p; });
+      if (free.length) { var s = pick(free); p.goStn = s; s.owner = p; p.tx = s.x; p.tz = s.z; return; }
+    }
+    p.skip = false; var t = c.pick(); p.tx = t.x; p.tz = t.z;
+  }
+  function arrive(c, p) {
+    if (p.goStn) {
+      var s = p.goStn; p.goStn = null; p.stn = s; p.x = s.x; p.z = s.z; p.heading = s.h; p.act = s.act; p.t = 0; p.dur = s.act === 'sit' ? 25 + Math.random() * 40 : 14 + Math.random() * 26; return;
+    }
+    if (c.hoops.length && Math.random() < 0.5) {
+      var best = c.hoops[0], bd = 1e9; c.hoops.forEach(function (h) { var d = Math.hypot(h.x - p.x, h.z - p.z); if (d < bd) { bd = d; best = h; } });
+      p.heading = Math.atan2(best.x - p.x, best.z - p.z); p.act = 'jump'; p.t = 0; p.dur = 0.85; return;
+    }
+    if (c.kind === 'racq' && Math.random() < 0.55) { p.act = 'swing'; p.t = 0; p.dur = 0.6; p.heading = Math.random() * TWO_PI; return; }
+    p.wait = c.style.pause * (0.4 + Math.random() * 1.2);
+  }
+  function endActivity(c, p) {
+    if (p.stn) { p.stn.owner = null; p.stn = null; }
+    p.act = 'walk'; p.t = 0; p.pitch = 0; p.wait = 0.3 + Math.random() * 1.2; p.skip = Math.random() < 0.4;
+  }
+  function stepPerson(c, p, dt) {
+    resetPose(p);
+    if (p.act === 'walk') {
+      if (p.wait > 0) { p.wait -= dt; ACT.idle(p); if (p.wait <= 0) chooseNext(c, p); }
+      else {
+        var dx = p.tx - p.x, dz = p.tz - p.z, d = Math.hypot(dx, dz);
+        if (d < (p.goStn ? 0.12 : 0.45)) arrive(c, p);
+        else {
+          var vx = dx / d, vz = dz / d, sx = 0, sz = 0;
+          for (var k = 0; k < c.list.length; k++) {   // keep a little personal space
+            var q = c.list[k]; if (q === p || q.fade < 0.5) continue;
+            var ex = p.x - q.x, ez = p.z - q.z, d2 = ex * ex + ez * ez; if (d2 < 3.5 && d2 > 1e-4) { sx += ex / d2; sz += ez / d2; }
+          }
+          vx += sx * 0.8; vz += sz * 0.8; var vl = Math.hypot(vx, vz) || 1; vx /= vl; vz /= vl;
+          var st = Math.min(d, p.speed * dt), nx = p.x + vx * st, nz = p.z + vz * st;
+          if (p.goStn || inPoly(c.poly, nx, nz)) { p.x = nx; p.z = nz; } else { p.wait = 0.2; if (p.goStn) { p.goStn.owner = null; p.goStn = null; } }
+          turnTo(p, Math.atan2(vx, vz), dt); walkPose(p, p.speed, dt);
+        }
+      }
+    } else {
+      p.t += dt; if (p.stn) p.baseLift = p.stn.lift;
+      ACT[p.act](p, dt, c);
+      if (p.t >= p.dur) endActivity(c, p);
+    }
+  }
+  function resetHidden(c, p) {
+    if (p.stn) { p.stn.owner = null; p.stn = null; } if (p.goStn) { p.goStn.owner = null; p.goStn = null; }
+    if (p.fixed) return;
+    var s = c.spot(); p.x = s.x; p.z = s.z; p.act = 'walk'; p.t = 0; p.pitch = 0; p.wait = Math.random() * 2;
+  }
+  function updatePeople(dt) {
+    clockT += dt;
+    crowds.forEach(function (c) {
+      var F = built[c.floor]; if (!F.group.visible) return;
+      for (var i = 0; i < c.list.length; i++) {
+        var p = c.list[i], on = i < c.active ? 1 : 0;
+        p.fade += (on - p.fade) * Math.min(1, dt * 6); if (Math.abs(on - p.fade) < 0.02) p.fade = on;
+        if (!on && p.fade === 0) { if (p.shown) { hidePerson(p); resetHidden(c, p); } continue; }
+        stepPerson(c, p, dt); writePerson(p);
+      }
+    });
+    runners.forEach(function (r) {
+      var F = built[r.zone.floor]; if (!F.group.visible) return;
+      var total = r.cum[r.cum.length - 1];
+      r.list.forEach(function (rn, i) {
+        var on = i < r.active ? 1 : 0; rn.fade += (on - rn.fade) * Math.min(1, dt * 6); if (Math.abs(on - rn.fade) < 0.02) rn.fade = on;
+        if (!on && rn.fade === 0) { if (rn.shown) hidePerson(rn); return; }
+        resetPose(rn);
+        rn.d = (rn.d + rn.v * dt) % total; var j = 0; while (r.cum[j + 1] < rn.d) j++;
+        var a = r.path[j], b = r.path[(j + 1) % r.path.length], t = (rn.d - r.cum[j]) / (r.cum[j + 1] - r.cum[j]), nx = -(b.z - a.z), nz = b.x - a.x, nl = Math.hypot(nx, nz) || 1;
+        rn.x = a.x + (b.x - a.x) * t + nx / nl * rn.lane; rn.z = a.z + (b.z - a.z) * t + nz / nl * rn.lane;
+        turnTo(rn, Math.atan2(b.x - a.x, b.z - a.z), dt); walkPose(rn, rn.v, dt); writePerson(rn);
+      });
+    });
+    Object.keys(built).forEach(function (k) {
+      var F = built[k]; if (!F.dirty || !F.parts) return; F.dirty = false;
+      PART_KEYS.forEach(function (n) { F.parts[n].instanceMatrix.needsUpdate = true; });
+    });
+  }
+
+  // ---------- geometry helpers + crowd setup ----------
+  function polyArea(poly) { var a = 0; for (var i = 0; i < poly.length; i++) { var p = poly[i], q = poly[(i + 1) % poly.length]; a += p.x * q.z - q.x * p.z; } return Math.abs(a) / 2; }
+  function inPoly(poly, x, z) {
+    var inside = false;
+    for (var i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      if ((poly[i].z > z) !== (poly[j].z > z) && x < (poly[j].x - poly[i].x) * (z - poly[i].z) / (poly[j].z - poly[i].z) + poly[i].x) inside = !inside;
+    }
+    return inside;
+  }
+  function kindFor(id) {
+    if (/pool/.test(id)) return 'pool';
+    if (/mac|forum/.test(id)) return 'court';
+    if (/racquet/.test(id)) return 'racq';
+    if (/wellness|stretch/.test(id)) return 'mats';
+    if (/fitness|cardio/.test(id)) return 'gym';
+    if (/group_ex|mind_body|multipurpose|cycle/.test(id)) return 'class';
+    if (/climbing/.test(id)) return 'climb';
+    if (/cafe/.test(id)) return 'cafe';
+    return 'wander';
+  }
+  function zoneStyle(id) {
+    var k = kindFor(id);
+    if (k === 'pool') return { per: 70, min: 4, max: 16, speed: 0.9, pause: 3 };
+    if (k === 'court') return { per: 55, min: 6, max: 22, speed: 2.3, pause: 0.5 };
+    if (k === 'racq') return { per: 55, min: 4, max: 14, speed: 2.1, pause: 0.5 };
+    if (k === 'gym' || k === 'mats') return { per: 40, min: 6, max: 24, speed: 1.2, pause: 3 };
+    if (k === 'class') return { per: 24, min: 4, max: 16, speed: 1.0, pause: 2 };
+    if (k === 'climb') return { per: 40, min: 6, max: 14, speed: 1.0, pause: 3 };
+    if (k === 'cafe') return { per: 22, min: 5, max: 12, speed: 1.1, pause: 3 };
+    return { per: 40, min: 4, max: 12, speed: 1.2, pause: 2.5 };
+  }
+  function gridSpots(poly, b, sp, inset) {
+    var out = []; for (var x = b.minX + inset; x <= b.maxX - inset; x += sp) for (var z = b.minZ + inset; z <= b.maxZ - inset; z += sp) if (inPoly(poly, x, z)) out.push({ x: x, z: z });
+    return out;
+  }
+  // People who live in one area. zone = a coloured zone (headcount follows its occupancy), or null for
+  // ambient areas (lobby, offices...), which follow the floor's average at `factor`.
+  function addCrowd(F, px, zone, style, factor, id) {
+    var kind = zone ? kindFor(id) : 'wander';
+    var poly = px.map(W), cx = 0, cz = 0; poly.forEach(function (v) { cx += v.x; cz += v.z; }); cx /= poly.length; cz /= poly.length;
+    poly = poly.map(function (v) { return { x: cx + (v.x - cx) * 0.86, z: cz + (v.z - cz) * 0.86 }; });
+    var b = { minX: 1e9, maxX: -1e9, minZ: 1e9, maxZ: -1e9 };
+    poly.forEach(function (v) { b.minX = Math.min(b.minX, v.x); b.maxX = Math.max(b.maxX, v.x); b.minZ = Math.min(b.minZ, v.z); b.maxZ = Math.max(b.maxZ, v.z); });
+    function spot() {
+      for (var i = 0; i < 40; i++) { var x = b.minX + Math.random() * (b.maxX - b.minX), z = b.minZ + Math.random() * (b.maxZ - b.minZ); if (inPoly(poly, x, z)) return { x: x, z: z }; }
+      return { x: cx, z: cz };
+    }
+    var midZ = (b.minZ + b.maxZ) / 2, hoops = [];
+    var c = { floor: F.n, zone: zone, factor: factor || 1, style: style, kind: kind, poly: poly, list: [], active: 0, spot: spot, pick: spot, stations: [], hoops: hoops };
+    var n = Math.max(style.min, Math.min(style.max, Math.round(polyArea(poly) / style.per)));
+
+    function station(x, z, h, act, lift) { var s = { x: x, z: z, h: h, act: act, lift: lift, owner: null }; c.stations.push(s); return s; }
+
+    if (kind === 'court') {
+      [[b.minX + 1.8, 1, 0], [b.maxX - 1.8, -1, Math.PI]].forEach(function (h) {
+        var x = h[0], s = h[1]; hoops.push({ x: x + s * 1.5, z: midZ });
+        addProp(F, 'hoop', x, midZ, h[2]);
+      });
+      c.pick = function () {
+        if (Math.random() < 0.35) { var h = pick(hoops), x = h.x + (h.x < cx ? 1 : -1) * (1.5 + Math.random() * 4), z = h.z + (Math.random() - 0.5) * 6; if (inPoly(poly, x, z)) return { x: x, z: z }; }
+        return spot();
+      };
+    } else if (kind === 'gym' || kind === 'mats') {
+      gridSpots(poly, b, 5.2, 2.4).forEach(function (s, k) {
+        if (kind === 'mats') { addProp(F, 'mat', s.x, s.z, 0, k % 2 ? 0x7C3AED : 0x0EA5E9); station(s.x, s.z, 0, k % 2 ? 'flow' : 'stretch', 0); return; }
+        var m = k % 5;
+        if (m === 0 || m === 1 || m === 4) { addProp(F, 'treadmill', s.x, s.z, Math.PI); station(s.x, s.z, Math.PI, 'run', 0.28); }
+        else if (m === 2) { addProp(F, 'rack', s.x, s.z - 1.5, 0); station(s.x, s.z, Math.PI, 'press', 0); }
+        else { addProp(F, 'dbrack', s.x, s.z + 1.4, Math.PI); station(s.x, s.z, Math.PI, 'curl', 0); }
+      });
+    } else if (kind === 'cafe') {
+      gridSpots(poly, b, 4.8, 2.2).forEach(function (s) {
+        addProp(F, 'table', s.x, s.z, 0);
+        addProp(F, 'chair', s.x - 1.5, s.z, Math.PI / 2); station(s.x - 1.5, s.z, Math.PI / 2, 'sit', -0.75);
+        addProp(F, 'chair', s.x + 1.5, s.z, -Math.PI / 2); station(s.x + 1.5, s.z, -Math.PI / 2, 'sit', -0.75);
+      });
+    } else if (kind === 'climb') {
+      var wz = b.minZ + 0.3, w = (b.maxX - b.minX) * 0.92, panel = [part(rbox(w, 8.8, 0.4, 0.08), 0x94A3B8, 0, 4.4, 0), part(rbox(w, 0.5, 0.7, 0.1), 0x3B82F6, 0, 0.25, 0.15)];
+      for (var hh = 0; hh < 46; hh++) { var sg = new THREE.SphereGeometry(0.1 + Math.random() * 0.12, 8, 6); sg.scale(1.2, 0.8, 0.8); panel.push(part(sg, pick([0xF97316, 0x0EA5E9, 0xBE185D, 0x7C3AED, 0xE2E8F0, 0x14B8A6, 0xFACC15]), (Math.random() - 0.5) * (w - 1), 0.9 + Math.random() * 7.4, 0.24, Math.random(), Math.random(), Math.random())); }
+      addProp(F, mergeParts(panel), cx, wz - 0.2, 0, 0xffffff, 0, 1);
+      c.wallZ = wz;
+    } else if (kind === 'pool') {
+      c.axis = (b.maxX - b.minX) >= (b.maxZ - b.minZ) ? 'x' : 'z';
+      var lo = c.axis === 'x' ? b.minX : b.minZ, hi = c.axis === 'x' ? b.maxX : b.maxZ, olo = c.axis === 'x' ? b.minZ : b.minX, ohi = c.axis === 'x' ? b.maxZ : b.maxX;
+      c.loA = lo + 1.4; c.hiA = hi - 1.4; c.nl = Math.max(2, Math.floor((ohi - olo - 2) / 2.6)); c.olo = olo + 1.3; c.ostep = (ohi - olo - 2.6) / c.nl;
+    }
+
+    // class rooms: participants stand on a grid facing the front (north); the instructor stands at the front facing them
+    var slots = [];
+    if (kind === 'class') {
+      slots = gridSpots(poly, b, 3.4, 1.4); var fx = cx, fz = b.minZ + 1.6;
+      slots = slots.filter(function (s) { return s.z > fz + 2.6; }).sort(function (a, z) { return Math.hypot(a.x - fx, a.z - fz) - Math.hypot(z.x - fx, z.z - fz); });
+      n = Math.max(3, Math.min(style.max, slots.length + 1));
+      c.fx = fx; c.fz = fz;
+    }
+    var climbSlots = [];
+    if (kind === 'climb') { for (var x = b.minX + 2; x <= b.maxX - 2; x += 4) climbSlots.push(x); }
+    var classAct = /group_ex/.test(id) ? 'jacks' : /mind_body/.test(id) ? 'flow' : /multipurpose/.test(id) ? 'stretch' : 'bike';
+    if (kind === 'class' && classAct === 'bike') {
+      slots.forEach(function (s) { addProp(F, 'bike', s.x, s.z, Math.PI); });
+      addProp(F, 'bike', c.fx, c.fz, 0);
+    }
+
+    for (var i = 0; i < n; i++) {
+      var p = makePerson(F), s0 = spot(), t0 = spot();
+      p.x = s0.x; p.z = s0.z; p.tx = t0.x; p.tz = t0.z; p.speed = style.speed * (0.75 + Math.random() * 0.5); p.wait = Math.random() * style.pause;
+      if (kind === 'gym' || kind === 'mats') p.wantStn = i % 4 !== 3;
+      if (kind === 'cafe') p.wantStn = i % 5 < 3;
+      if (kind === 'class') {
+        p.fixed = true; p.act = classAct; p.dur = 1e9; p.baseLift = 0;
+        if (i === 0) { p.x = c.fx; p.z = c.fz; p.heading = 0; } else { var sl = slots[i - 1]; p.x = sl.x; p.z = sl.z; p.heading = Math.PI; }
+      } else if (kind === 'climb' && i < climbSlots.length) {
+        p.fixed = true; p.act = 'climb'; p.dur = 1e9; p.x = climbSlots[i]; p.z = c.wallZ + 0.85; p.heading = Math.PI; p.cy = 0.2 + Math.random() * 4.5; p.cd = Math.random() < 0.5 ? 1 : -1;
+      } else if (kind === 'pool' && (i % 10 < (/multi/.test(id) ? 5 : 7))) {
+        p.fixed = true; p.act = 'swim'; p.dur = 1e9; p.speed = 1.0 + Math.random() * 0.7; p.sd = Math.random() < 0.5 ? 1 : -1;
+        var lane = c.olo + (i % c.nl + 0.5) * c.ostep; p.lane = lane;
+        var along = c.loA + Math.random() * (c.hiA - c.loA); if (c.axis === 'x') { p.x = along; p.z = lane; } else { p.z = along; p.x = lane; }
+        p.heading = c.axis === 'x' ? (p.sd > 0 ? Math.PI / 2 : -Math.PI / 2) : (p.sd > 0 ? 0 : Math.PI);
+      }
+      c.list.push(p);
+    }
+    crowds.push(c);
+  }
+
   FLOORS.forEach(function (D) {
     var F = { n: D.n, y: (D.n - 1) * FLOOR_H, group: new THREE.Group(), mats: [] };
     F.group.position.y = F.y; scene.add(F.group); built[D.n] = F;
@@ -1494,15 +2014,16 @@
     (D.zones || []).forEach(function (z) {
       var px = T(z.pts), c = W(centroid(px)); c.y = F.y + (z.room ? WALL_H + 0.8 : 1.6);
       if (z.live) {
-        var base = mat(F, 'floor');
-        base.color.offsetHSL(0, 0, -0.016 * (F.n - 1));
-        slab(F, px, 0.1, 0.12, base, soft);
+        var tn = texFor(z.id), base = tn ? texMat(F, tn) : mat(F, 'floor'), rpx = rounded(px, 5);
+        if (!tn) base.color.offsetHSL(0, 0, -0.016 * (F.n - 1));
+        slab(F, rpx, 0.1, 0.12, base, soft);
         var zm = mat(F, 'zone');
-        var mesh = slab(F, px, 0.22, 0.1, zm, line);
+        var mesh = slab(F, rpx, 0.22, 0.1, zm, line);
         if (z.room) wall(F, px, true, 0, WALL_H, glass, soft, 0);
-        addZone(F, z.id, z.name, mesh, zm, c);
+        var zo = addZone(F, z.id, z.name, mesh, zm, c);
+        addCrowd(F, px, zo, zoneStyle(z.id), 1, z.id);
       } else {
-        if (!z.noOutline) outline(F, px, 0.06, soft);
+        if (!z.noOutline) { outline(F, px, 0.06, soft); addCrowd(F, px, null, { per: 55, min: 2, max: 8, speed: 1.1, pause: 3 }, 0.8, ''); }
         addLabel(z.name, c, '', F.n);
       }
     });
@@ -1511,7 +2032,7 @@
       var outer = rounded(T(tr.outer), tr.ro * k), inner = rounded(T(tr.inner), tr.ri * k);
       var trackBase = mat(F, 'track');
       slab(F, outer, 0.02, 0.3, trackBase, soft, inner);
-      var zm = mat(F, 'zone'); zm.opacity = 0.62; zm.userData.base = 0.62;
+      var zm = mat(F, 'zone'); zm.opacity = 0.5; zm.userData.base = 0.5;
       var mesh = slab(F, outer, 0.08, 0.08, zm, null, inner);
       [0.33, 0.66].forEach(function (f) { outline(F, outer.map(function (o, i) { var q = inner[i]; return [o[0] + (q[0] - o[0]) * f, o[1] + (q[1] - o[1]) * f]; }), 0.09, soft); });
       wall(F, inner, true, 0, RAIL_H, glass, soft, 3);
@@ -1521,8 +2042,8 @@
       // people moving round the track
       var path = outer.map(function (o, i) { return W([(o[0] + inner[i][0]) / 2, (o[1] + inner[i][1]) / 2]); }), cum = [0];
       for (var i = 0; i < path.length; i++) cum.push(cum[i] + path[i].distanceTo(path[(i + 1) % path.length]));
-      var dm = mat(F, 'dot'), dg = new THREE.SphereGeometry(0.32, 8, 6), list = [];
-      for (var r = 0; r < tr.max; r++) { var s = new THREE.Mesh(dg, dm); F.group.add(s); list.push({ mesh: s, d: Math.random() * cum[cum.length - 1], v: tr.speed * (0.7 + Math.random() * 0.6), lane: (Math.random() - 0.5) * 2.4 }); }
+      var list = [];
+      for (var r = 0; r < tr.max; r++) { var p = makePerson(F); p.d = Math.random() * cum[cum.length - 1]; p.v = tr.speed * (0.7 + Math.random() * 0.6); p.lane = (Math.random() - 0.5) * 2.4; list.push(p); }
       runners.push({ zone: z, path: path, cum: cum, list: list, active: 0 });
     });
 
@@ -1541,6 +2062,7 @@
     var box = new THREE.Box3().setFromObject(F.group); F.centre = box.getCenter(new THREE.Vector3()); F.centre.y = F.y; F.size = box.getSize(new THREE.Vector3());
     var lp = new THREE.Vector3(box.min.x - 3, F.y + 1, F.centre.z);
     var fl = addLabel('Level ' + F.n, lp, 'floor', F.n); fl.el.addEventListener('click', function () { focus(F.n); });
+    finalizePeople(F);
   });
 
   // =====================================================================
@@ -1575,6 +2097,12 @@
       z.label.el.innerHTML = '<i class="dot" style="background:#' + c.getHexString() + '"></i>' + z.name + '<small>' + detail + '</small>';
     });
     runners.forEach(function (r) { r.active = Math.round(r.zone.occ * r.list.length); });
+    var sum = {}, cnt = {};
+    zones.forEach(function (z) { sum[z.floor] = (sum[z.floor] || 0) + z.occ; cnt[z.floor] = (cnt[z.floor] || 0) + 1; });
+    crowds.forEach(function (c) {
+      var o = c.zone ? c.zone.occ : (cnt[c.floor] ? sum[c.floor] / cnt[c.floor] : 0) * c.factor;
+      c.active = Math.round(o * c.list.length);
+    });
   }
   // Open at the current time (rounded to the slider's 15-minute steps, within opening hours)
   function nowSliderValue() {
@@ -1735,7 +2263,7 @@
 
   function resize() { var w = window.innerWidth, h = window.innerHeight; renderer.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix(); }
   window.addEventListener('resize', resize); resize();
-  (function () { var v = viewFor(0); camera.position.copy(v.pos); controls.target.copy(v.tgt); })();
+  (function () { var v = viewFor(0); camera.position.copy(v.pos.clone().sub(v.tgt).multiplyScalar(1.35).add(v.tgt)); controls.target.copy(v.tgt); setTimeout(function () { focus(0); }, 120); })();   // gentle fly-in on load
 
   var clock = new THREE.Clock(), tmp = new THREE.Vector3();
   var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -1751,16 +2279,12 @@
       anim.t = Math.min(1, anim.t + dt / dur); var e = reduceMotion ? 1 : (anim.t < 0.5 ? 2 * anim.t * anim.t : 1 - Math.pow(-2 * anim.t + 2, 2) / 2);
       camera.position.lerpVectors(anim.p0, anim.p1, e); controls.target.lerpVectors(anim.g0, anim.g1, e); if (anim.t === 1) anim = null;
     }
-    runners.forEach(function (r) {
-      var total = r.cum[r.cum.length - 1];
-      r.list.forEach(function (rn, i) {
-        rn.mesh.visible = i < r.active; if (!rn.mesh.visible) return;
-        rn.d = (rn.d + rn.v * dt) % total; var j = 0; while (r.cum[j + 1] < rn.d) j++;
-        var a = r.path[j], b = r.path[(j + 1) % r.path.length], t = (rn.d - r.cum[j]) / (r.cum[j + 1] - r.cum[j]), nx = -(b.z - a.z), nz = b.x - a.x, nl = Math.hypot(nx, nz) || 1;
-        rn.mesh.position.set(a.x + (b.x - a.x) * t + nx / nl * rn.lane, 0.55, a.z + (b.z - a.z) * t + nz / nl * rn.lane);
-      });
-    });
-    controls.update(); renderer.render(scene, camera);
+    updatePeople(dt);
+    if (TEX.water) { TEX.water.offset.x += dt * 0.006; TEX.water.offset.y += dt * 0.004; }
+    controls.update();
+    var cl = tmp.set(Math.max(-70, Math.min(70, controls.target.x)), controls.target.y, Math.max(-55, Math.min(55, controls.target.z))).sub(controls.target);
+    if (cl.lengthSq() > 1e-6) { camera.position.add(cl); controls.target.add(cl); }   // don't let the map be dragged out of view
+    renderer.render(scene, camera);
     var w = window.innerWidth, h = window.innerHeight;
     labels.forEach(function (l) {
       var show = l.overview ? !focused : focused === l.floor;

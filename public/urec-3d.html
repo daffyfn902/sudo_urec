@@ -1586,7 +1586,8 @@
   // =====================================================================
   // Floor focus + camera
   // =====================================================================
-  var focused = 0, anim = null, OVER_DIR = new THREE.Vector3(-0.55, 0.52, 0.65).normalize(), FOCUS_DIR = new THREE.Vector3(-0.3, 0.68, 0.66).normalize();
+  var focused = 0, anim = null, highlightedZoneId = null;
+  var OVER_DIR = new THREE.Vector3(-0.55, 0.52, 0.65).normalize(), FOCUS_DIR = new THREE.Vector3(-0.3, 0.68, 0.66).normalize();
   function fit() { return Math.max(1, 0.88 / (window.innerWidth / window.innerHeight)); }
   function viewFor(n) {
     if (!n) return { tgt: new THREE.Vector3(2, 16, 2), pos: new THREE.Vector3(2, 16, 2).add(OVER_DIR.clone().multiplyScalar(300 * fit())) };
@@ -1594,8 +1595,69 @@
     var tg = F.centre.clone(); tg.y = F.y + 1.4; tg.z += F.size.z * 0.08;
     return { tgt: tg, pos: tg.clone().add(FOCUS_DIR.clone().multiplyScalar(d * 1.0)) };
   }
+  function viewForZone(z) {
+    var F = built[z.floor];
+    var tg = z.label.pos.clone();
+    tg.y = F.y + 1.2;
+    var d = Math.max(F.size.x, F.size.z) * 0.72 * fit();
+    return { tgt: tg, pos: tg.clone().add(FOCUS_DIR.clone().multiplyScalar(d)) };
+  }
+  function applyHighlight() {
+    zones.forEach(function (z) {
+      if (!z.mat || !z.mat.userData) return;
+      var base = z.mat.userData.base != null ? z.mat.userData.base : 0.72;
+      if (!highlightedZoneId) {
+        z.mat.opacity = base;
+        if (z.label && z.label.el) z.label.el.style.outline = '';
+        return;
+      }
+      if (z.id === highlightedZoneId) {
+        z.mat.opacity = Math.min(1, base + 0.22);
+        if (z.label && z.label.el) {
+          z.label.el.style.outline = '2px solid #450084';
+          z.label.el.style.outlineOffset = '2px';
+        }
+      } else {
+        z.mat.opacity = Math.max(0.12, base * 0.35);
+        if (z.label && z.label.el) z.label.el.style.outline = '';
+      }
+    });
+  }
+  function focusZone(zoneId, floorHint) {
+    var z = null;
+    for (var i = 0; i < zones.length; i++) {
+      if (zones[i].id === zoneId) { z = zones[i]; break; }
+    }
+    if (!z) {
+      if (floorHint) focus(floorHint);
+      return;
+    }
+    highlightedZoneId = z.id;
+    focused = z.floor;
+    Object.keys(built).forEach(function (key) {
+      var F = built[key], f = F.n === focused ? 1 : F.n < focused ? 0.15 : 0;
+      F.group.visible = f > 0;
+      F.mats.forEach(function (m) {
+        var lower = 1;
+        m.opacity = Math.min(1, m.userData.base * f * lower);
+      });
+    });
+    applyHighlight();
+    document.getElementById('title').textContent = z.name;
+    document.getElementById('subtitle').textContent = 'Level ' + z.floor + ' · Simulated';
+    Array.prototype.forEach.call(document.querySelectorAll('#floors button'), function (b) {
+      b.setAttribute('aria-pressed', String(+b.dataset.f === focused));
+    });
+    var v = viewForZone(z);
+    anim = { t: 0, p0: camera.position.clone(), p1: v.pos, g0: controls.target.clone(), g1: v.tgt };
+  }
+  function clearHighlight() {
+    highlightedZoneId = null;
+    applyHighlight();
+  }
   function focus(n) {
     focused = n;
+    if (!n) highlightedZoneId = null;
     Object.keys(built).forEach(function (key) {
       var F = built[key], f = !n || F.n === n ? 1 : F.n < n ? 0.15 : 0;
       F.group.visible = f > 0; F.mats.forEach(function (m) {
@@ -1605,12 +1667,30 @@
         m.opacity = Math.min(1, m.userData.base * f * boost * lower);
       });
     });
+    applyHighlight();
     document.getElementById('title').textContent = 'UREC';
     document.getElementById('subtitle').textContent = (n ? 'Level ' + n : 'All floors') + ' · Simulated';
     Array.prototype.forEach.call(document.querySelectorAll('#floors button'), function (b) { b.setAttribute('aria-pressed', String(+b.dataset.f === n)); });
     var v = viewFor(n); anim = { t: 0, p0: camera.position.clone(), p1: v.pos, g0: controls.target.clone(), g1: v.tgt };
   }
   Array.prototype.forEach.call(document.querySelectorAll('#floors button'), function (b) { b.addEventListener('click', function () { focus(+b.dataset.f); }); });
+
+  // Parent React app can focus a zone for Explore → Preview on Map
+  window.addEventListener('message', function (event) {
+    if (event.origin !== window.location.origin) return;
+    var data = event.data;
+    if (!data || typeof data !== 'object') return;
+    if (data.type === 'urec:focus-zone' && data.zoneId) {
+      focusZone(String(data.zoneId), data.floor ? +data.floor : 0);
+    } else if (data.type === 'urec:clear-highlight') {
+      clearHighlight();
+    }
+  });
+  try {
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({ type: 'urec:ready' }, window.location.origin);
+    }
+  } catch (err) { /* ignore */ }
 
   // tap (not drag) on the model picks a floor
   var down = null, ray = new THREE.Raycaster(), ndc = new THREE.Vector2();

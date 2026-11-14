@@ -1,13 +1,16 @@
 import { AnimatePresence, motion } from 'framer-motion'
 import {
+  Check,
+  Clock3,
   Dumbbell,
   Footprints,
   Layers,
   MapPinned,
+  Sparkles,
   Volleyball,
   X,
 } from 'lucide-react'
-import type { ZoneDetails } from '../../data/types'
+import type { Challenge, ZoneDetails } from '../../data/types'
 import { TrafficBadge } from './TrafficBadge'
 import { ForecastChart } from './ForecastChart'
 import { formatHour } from '../../utils/time'
@@ -24,11 +27,21 @@ const ZONE_ICONS: Record<string, typeof Dumbbell> = {
 
 interface ZoneDetailSheetProps {
   details: ZoneDetails | null
+  challenge?: Challenge | null
+  challengeCompleted?: boolean
   onClose: () => void
   onFindAlternative?: () => void
+  onCompleteChallenge?: () => void
 }
 
-export function ZoneDetailSheet({ details, onClose, onFindAlternative }: ZoneDetailSheetProps) {
+export function ZoneDetailSheet({
+  details,
+  challenge = null,
+  challengeCompleted = false,
+  onClose,
+  onFindAlternative,
+  onCompleteChallenge,
+}: ZoneDetailSheetProps) {
   const isDesktop = useIsDesktop()
   const reduceMotion = usePrefersReducedMotion()
 
@@ -48,9 +61,13 @@ export function ZoneDetailSheet({ details, onClose, onFindAlternative }: ZoneDet
             />
           )}
           <motion.aside
-            key={details.zone.id}
+            key={`${details.zone.id}-${challenge?.id ?? 'zone'}`}
             role="dialog"
-            aria-label={`${details.zone.label} details`}
+            aria-label={
+              challenge
+                ? `${challenge.title} in ${details.zone.label}`
+                : `${details.zone.label} details`
+            }
             className={
               isDesktop
                 ? 'absolute right-4 top-4 bottom-28 z-40 flex w-[340px] flex-col overflow-hidden rounded-3xl border border-border bg-surface shadow-[var(--shadow-float)]'
@@ -107,6 +124,57 @@ export function ZoneDetailSheet({ details, onClose, onFindAlternative }: ZoneDet
             </div>
 
             <div className="flex-1 space-y-4 overflow-y-auto px-5 pb-5">
+              {challenge && (
+                <div className="rounded-2xl border border-border-strong bg-jmu-lavender/50 px-4 py-3.5">
+                  <p className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-jmu-purple">
+                    <Sparkles className="h-3 w-3" aria-hidden />
+                    Explore challenge
+                  </p>
+                  <h3 className="mt-1.5 text-[15px] font-semibold tracking-[-0.02em] text-ink">
+                    {challenge.title}
+                  </h3>
+                  <p className="mt-1 text-[13px] leading-relaxed text-ink-muted">
+                    {challenge.description}
+                  </p>
+                  <p className="mt-2 inline-flex items-center gap-1.5 text-[12px] font-semibold text-ink">
+                    <Clock3 className="h-3.5 w-3.5 text-jmu-purple-light" aria-hidden />
+                    ~{challenge.durationMinutes} min
+                  </p>
+                  <ol className="mt-3 space-y-2">
+                    {challenge.steps.map((step, index) => (
+                      <li key={step} className="flex gap-2.5 text-[13px] leading-snug text-ink-muted">
+                        <span
+                          className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white text-[11px] font-semibold text-jmu-purple"
+                          aria-hidden
+                        >
+                          {index + 1}
+                        </span>
+                        {step}
+                      </li>
+                    ))}
+                  </ol>
+                  <p className="mt-3 text-[11px] leading-relaxed text-ink-subtle">
+                    Optional guidance only — not professional supervision. Occupancy is simulated.
+                  </p>
+                  {onCompleteChallenge && (
+                    <button
+                      type="button"
+                      onClick={onCompleteChallenge}
+                      disabled={challengeCompleted}
+                      className={[
+                        'mt-3 flex w-full items-center justify-center gap-2 rounded-2xl py-2.5 text-sm font-semibold transition',
+                        challengeCompleted
+                          ? 'cursor-default bg-traffic-low/15 text-emerald-800'
+                          : 'bg-jmu-purple text-white hover:bg-jmu-purple-dark',
+                      ].join(' ')}
+                    >
+                      <Check className="h-4 w-4" aria-hidden />
+                      {challengeCompleted ? 'Completed' : 'Mark Complete'}
+                    </button>
+                  )}
+                </div>
+              )}
+
               <div className="flex flex-wrap items-center gap-2">
                 <TrafficBadge status={details.occupancy.status} />
                 <span className="text-xs text-ink-subtle">

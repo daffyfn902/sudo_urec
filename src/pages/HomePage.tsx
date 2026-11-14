@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { ArrowUpRight } from 'lucide-react'
+import { ArrowUpRight, Compass } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { OccupancyCard } from '../components/ui/OccupancyCard'
 import { ForecastChart } from '../components/ui/ForecastChart'
@@ -61,6 +61,26 @@ export function HomePage() {
             <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/15 transition group-hover:bg-white/20">
               <ArrowUpRight className="h-4 w-4" strokeWidth={2.25} />
             </span>
+          </Link>
+
+          <Link
+            to="/explore"
+            className="pressable group card-surface flex items-center justify-between px-5 py-4 transition-colors hover:border-border-strong hover:bg-jmu-lavender/30"
+          >
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-[12px] bg-jmu-lavender text-jmu-purple">
+                <Compass className="h-4 w-4" strokeWidth={2.25} aria-hidden />
+              </span>
+              <div>
+                <p className="text-[15px] font-semibold tracking-[-0.02em] text-ink">
+                  Explore Something New
+                </p>
+                <p className="mt-0.5 text-[12px] text-ink-muted">
+                  Gentle challenges to try unfamiliar zones
+                </p>
+              </div>
+            </div>
+            <ArrowUpRight className="h-4 w-4 shrink-0 text-ink-subtle transition group-hover:text-jmu-purple" />
           </Link>
 
           <section className="card-surface p-4 sm:p-5">

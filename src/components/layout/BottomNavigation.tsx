@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { Bookmark, CalendarClock, Home, Map } from 'lucide-react'
+import { Bookmark, CalendarClock, Compass, Home, Map } from 'lucide-react'
 import { motion } from 'framer-motion'
 
 const links: Array<{
@@ -10,6 +10,7 @@ const links: Array<{
 }> = [
   { to: '/', label: 'Home', icon: Home, end: true },
   { to: '/map', label: 'Map', icon: Map },
+  { to: '/explore', label: 'Explore', icon: Compass },
   { to: '/plan', label: 'Plan', icon: CalendarClock },
   { to: '/saved', label: 'Saved', icon: Bookmark },
 ]

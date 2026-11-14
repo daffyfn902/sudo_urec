@@ -1,15 +1,21 @@
-"""Local PostgreSQL for the social features (users, friends, check-ins, lifts).
+"""PostgreSQL for the social features (users, friends, check-ins, lifts), on localhost:5433.
 
-Runs a project-only Postgres cluster in data/postgres on port 5433, using the PostgreSQL
-programs already installed on the machine. No admin rights, password or Windows service needed.
+Two ways to run it; the app connects the same way to either:
 
-    python -m backend.db setup     # first time: create the cluster, start it, create tables, seed test users
-    python -m backend.db start     # start it again later (e.g. after a reboot)
-    python -m backend.db stop
+  A. Docker (recommended: nothing to install but Docker Desktop)
+         docker compose up -d          # starts Postgres, creates the tables and seeds the test users
+         docker compose down           # stop (data is kept);  add -v to wipe it
+
+  B. A project-only cluster in data/postgres, using PostgreSQL installed on this machine
+         python -m backend.db setup    # first time: create, start, create tables, seed
+         python -m backend.db start    # after a reboot
+         python -m backend.db stop
+
+Either way:
     python -m backend.db reset     # wipe all social data and re-seed the test users
     python -m backend.db status
 
-Point DATABASE_URL somewhere else to use a different server instead.
+Don't run both at once: they use the same port. Point DATABASE_URL elsewhere to use another server.
 """
 
 from __future__ import annotations
@@ -29,7 +35,10 @@ PGDATA = ROOT / "data" / "postgres"
 PGLOG = ROOT / "data" / "postgres.log"
 PORT = int(os.environ.get("PGPORT_COMFORT", "5433"))
 DB_USER, DB_NAME = "comfort", "comfort_zone"
-DATABASE_URL = os.environ.get("DATABASE_URL", f"postgresql://{DB_USER}@localhost:{PORT}/{DB_NAME}")
+DB_PASSWORD = "comfort"     # local demo database only; the port is published to localhost only
+# 127.0.0.1, not "localhost": on Windows localhost tries IPv6 first, and the Docker port is IPv4-only,
+# which adds about 3 seconds to every connection.
+DATABASE_URL = os.environ.get("DATABASE_URL", f"postgresql://{DB_USER}:{DB_PASSWORD}@127.0.0.1:{PORT}/{DB_NAME}")
 SCHEMA = Path(__file__).with_name("schema.sql")
 
 
@@ -63,48 +72,13 @@ def is_up() -> bool:
 # --------------------------------------------------------------------------------------------
 # Seed data: test users and a small story to demo with
 # --------------------------------------------------------------------------------------------
-SEED = """
-INSERT INTO users (username, display_name, color) VALUES
-  ('nathan', 'Nathan', '#450084'),
-  ('ryan',   'Ryan',   '#16a66a'),
-  ('carter', 'Carter', '#e07a2e'),
-  ('maya',   'Maya',   '#2a78d6');
-
--- Nathan, Ryan and Carter are all friends with each other
-INSERT INTO friendships (user_id, friend_id, status)
-SELECT a.id, b.id, 'accepted' FROM users a, users b
-WHERE a.username IN ('nathan', 'ryan', 'carter') AND b.username IN ('nathan', 'ryan', 'carter') AND a.id <> b.id;
-
--- Maya has sent Nathan a friend request
-INSERT INTO friendships (user_id, friend_id, status)
-SELECT m.id, n.id, 'pending' FROM users m, users n WHERE m.username = 'maya' AND n.username = 'nathan';
-
--- Ryan checked in at Free Weights 25 minutes ago; Maya is on the track
-INSERT INTO checkins (user_id, zone_id, checked_in_at)
-SELECT id, 'free-weights', now() - interval '25 minutes' FROM users WHERE username = 'ryan';
-INSERT INTO checkins (user_id, zone_id, checked_in_at)
-SELECT id, 'indoor-track', now() - interval '10 minutes' FROM users WHERE username = 'maya';
-
--- Ryan planned a lift tomorrow 7-9 AM and invited Nathan (pending) and Carter (accepted)
-WITH lift AS (
-  INSERT INTO lifts (owner_id, date, start_hour, end_hour, time_label, preference, expected_crowd_level,
-                     expected_occupancy_percent, zone_id, zone_label, note)
-  SELECT id, CURRENT_DATE + 1, 7, 9, '7 AM – 9 AM', 'weights', 'low', 12, 'free-weights', 'Free Weights',
-         'Push day, then a quick cooldown on the track'
-  FROM users WHERE username = 'ryan'
-  RETURNING id
-)
-INSERT INTO lift_invites (lift_id, invitee_id, status, responded_at)
-SELECT lift.id, u.id, CASE u.username WHEN 'carter' THEN 'accepted' ELSE 'pending' END,
-       CASE u.username WHEN 'carter' THEN now() END
-FROM lift, users u WHERE u.username IN ('nathan', 'carter');
-"""
+SEED = Path(__file__).with_name("seed.sql")
 
 
 def apply_schema_and_seed() -> None:
     with connect() as c:
         c.execute(SCHEMA.read_text(encoding="utf-8"))
-        c.execute(SEED)
+        c.execute(SEED.read_text(encoding="utf-8"))
     print("tables created and test users seeded (nathan, ryan, carter, maya)")
 
 
@@ -152,7 +126,7 @@ def setup() -> None:
         # trust auth on localhost only: fine for a local demo database, never for a real server
         _run(_bin("initdb"), "-D", str(PGDATA), "-U", DB_USER, "-A", "trust", "-E", "UTF8", "--locale=C")
     start()
-    with psycopg.connect(f"postgresql://{DB_USER}@localhost:{PORT}/postgres", autocommit=True) as c:
+    with psycopg.connect(f"postgresql://{DB_USER}@127.0.0.1:{PORT}/postgres", autocommit=True) as c:
         if not c.execute("SELECT 1 FROM pg_database WHERE datname = %s", (DB_NAME,)).fetchone():
             c.execute(f'CREATE DATABASE "{DB_NAME}"')
     apply_schema_and_seed()

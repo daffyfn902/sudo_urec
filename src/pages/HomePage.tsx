@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { ArrowUpRight, Compass } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { AskBox } from '../components/ui/AskBox'
+import { FriendsHereCard } from '../components/social/FriendsHereCard'
 import { OccupancyCard } from '../components/ui/OccupancyCard'
 import { ForecastChart } from '../components/ui/ForecastChart'
 import { TrafficBadge } from '../components/ui/TrafficBadge'
@@ -49,6 +50,7 @@ export function HomePage() {
         )}
         {/* Always shown, even while the overview loads */}
         <AskBox />
+        <FriendsHereCard />
       </div>
 
       {loading || !overview ? (

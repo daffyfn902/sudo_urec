@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom'
-import { Bookmark, CalendarClock, Compass, Home, Map } from 'lucide-react'
+import { Bookmark, CalendarClock, Compass, Home, Map, Users } from 'lucide-react'
 import { motion } from 'framer-motion'
 
 const links: Array<{
@@ -13,6 +13,7 @@ const links: Array<{
   { to: '/explore', label: 'Explore', icon: Compass },
   { to: '/plan', label: 'Plan', icon: CalendarClock },
   { to: '/saved', label: 'Saved', icon: Bookmark },
+  { to: '/friends', label: 'Friends', icon: Users },
 ]
 
 interface BottomNavigationProps {

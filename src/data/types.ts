@@ -180,3 +180,45 @@ export interface MapChallengePreview {
   challengeId: string
   zoneId: string
 }
+
+/** Friends, check-ins and lifts (backend/social.py, stored in PostgreSQL) */
+export interface SocialUser {
+  username: string
+  displayName: string
+  color: string
+}
+
+export interface Presence {
+  zoneId: string | null
+  zoneLabel: string | null
+  /** ISO timestamp of the check-in */
+  since: string
+}
+
+export interface Friend extends SocialUser {
+  atUrec: Presence | null
+}
+
+export interface FriendsData {
+  friends: Friend[]
+  incoming: SocialUser[]
+  outgoing: SocialUser[]
+}
+
+export type InviteStatus = 'pending' | 'accepted' | 'declined'
+
+/** A planned workout saved to the database, with the friends invited to it */
+export interface Lift extends SavedWorkoutPlan {
+  endHour: number
+  note: string
+  owner: SocialUser
+  isMine: boolean
+  /** The viewer's own invite status, when they were invited */
+  myStatus: InviteStatus | null
+  invites: Array<{ user: SocialUser; status: InviteStatus }>
+}
+
+export interface LiftsData {
+  mine: Lift[]
+  invited: Lift[]
+}

@@ -24,6 +24,10 @@ from .schema import (EVENT_LOAD, TIME_WINDOWS, ZONE_CATEGORY, ZONE_IDS, ZONE_NAM
 
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
 DEFAULT_MODEL = os.environ.get("OLLAMA_MODEL", "gemma3:4b")
+# How long Ollama keeps the model in GPU memory after a request. -1 = until Ollama stops, so a quiet
+# stretch never forces a slow reload (gemma3:4b holds about 3 GB of VRAM). Set e.g. "30m" to free it.
+_keep = os.environ.get("OLLAMA_KEEP_ALIVE", "-1")
+KEEP_ALIVE: int | str = int(_keep) if _keep.lstrip("-").isdigit() else _keep
 WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
 
 
@@ -177,7 +181,7 @@ def ollama_extract(text: str, today: date, now_hour: int, model: str = DEFAULT_M
         messages += [{"role": "user", "content": q}, {"role": "assistant", "content": json.dumps(_full(a))}]
     messages.append({"role": "user", "content": text})
     r = httpx.post(f"{OLLAMA_URL}/api/chat", timeout=timeout, json={
-        "model": model, "messages": messages, "stream": False, "think": False, "keep_alive": "30m",
+        "model": model, "messages": messages, "stream": False, "think": False, "keep_alive": KEEP_ALIVE,
         "format": extraction_json_schema(), "options": {"temperature": 0},
     })
     r.raise_for_status()
@@ -186,7 +190,25 @@ def ollama_extract(text: str, today: date, now_hour: int, model: str = DEFAULT_M
 
 def warm_up(model: str = DEFAULT_MODEL) -> None:
     """Load the model into GPU memory (the first load can take a minute or two). Call at API startup."""
-    httpx.post(f"{OLLAMA_URL}/api/generate", timeout=300, json={"model": model, "keep_alive": "30m"}).raise_for_status()
+    httpx.post(f"{OLLAMA_URL}/api/generate", timeout=300, json={"model": model, "keep_alive": KEEP_ALIVE}).raise_for_status()
+
+
+def ollama_status(model: str = DEFAULT_MODEL) -> dict:
+    """Live check: is Ollama up, is the model installed, and is it loaded in memory right now?"""
+    try:
+        loaded = httpx.get(f"{OLLAMA_URL}/api/ps", timeout=3).json().get("models", [])
+        names = {m.get("name") for m in loaded} | {m.get("model") for m in loaded}
+        if model in names:
+            info = next(m for m in loaded if model in (m.get("name"), m.get("model")))
+            return {"state": "loaded", "detail": "in memory, questions take a few seconds",
+                    "expires_at": info.get("expires_at")}
+        installed = httpx.get(f"{OLLAMA_URL}/api/tags", timeout=3).json().get("models", [])
+        if model in {m.get("name") for m in installed} | {m.get("model") for m in installed}:
+            return {"state": "not_loaded", "detail": "installed but not in memory: the next question reloads it "
+                    "(10-30 s, longer the first time) and may fall back to keywords meanwhile"}
+        return {"state": "missing", "detail": f"not installed: run `ollama pull {model}` (keyword fallback in use)"}
+    except (httpx.HTTPError, ValueError):
+        return {"state": "unavailable", "detail": "Ollama isn't running (keyword fallback in use)"}
 
 
 # --------------------------------------------------------------------------------------------

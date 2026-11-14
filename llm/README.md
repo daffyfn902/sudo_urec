@@ -56,6 +56,14 @@ out = answer(parse_request(text))          # {"text", "understood", "slots": [{d
 `out["understood"]` is the "here's what I understood" line, `out["slots"]` is the hourly data for charts and
 the 3D map, and `out["request"]["source"]` is `llm`, `keyword` or `default`.
 
+## Keeping the model loaded
+
+Requests ask Ollama to keep the model in GPU memory until Ollama stops (`OLLAMA_KEEP_ALIVE=-1`, the default here;
+gemma3:4b holds about 3 GB of VRAM). Without that, Ollama unloads it after idle time and the next question has to
+reload it (10-30 s, longer the first time). If a reload outlasts the 30 s timeout, that question falls back to the keyword
+rules. Set `OLLAMA_KEEP_ALIVE=30m` (or any duration) to free the GPU memory when idle instead.
+Check `GET /api/health` (`"ollama": "loaded"`) or `ollama ps` (UNTIL `Forever`) before demoing.
+
 ## Known limits
 
 - About 4.7 s per question on an RTX 4050 with gemma3:4b. `qwen2.5:3b` may be faster: pull it and run

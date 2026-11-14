@@ -20,26 +20,38 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 from llm.answer import answer as llm_answer
-from llm.parse import DEFAULT_MODEL, OLLAMA_URL, WEEK_WORDS, parse_request, upcoming_finals, warm_up
+from llm.parse import (DEFAULT_MODEL, KEEP_ALIVE, OLLAMA_URL, WEEK_WORDS, ollama_status, parse_request,
+                       upcoming_finals, warm_up)
 from ml.predict import load_model
 
 from . import core
 
-STATE = {"ollama": "loading"}
+_warming = threading.Event()     # set while a background model load is running
+
+
+def _warm_in_background() -> bool:
+    """Start loading the Ollama model in the background (the first load can take 1-2 minutes).
+    Returns False if a load is already running."""
+    if _warming.is_set():
+        return False
+    _warming.set()
+
+    def warm() -> None:
+        try:
+            warm_up()
+        except httpx.HTTPError:
+            pass                 # health() reports the real state
+        finally:
+            _warming.clear()
+    threading.Thread(target=warm, daemon=True).start()
+    return True
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     load_model()                 # about 3 s, so the first request isn't slow
     core.readings()              # load the live-year readings
-
-    def warm() -> None:          # the first Ollama load can take 1-2 minutes: do it in the background
-        try:
-            warm_up()
-            STATE["ollama"] = "ready"
-        except httpx.HTTPError:
-            STATE["ollama"] = "unavailable (keyword fallback in use)"
-    threading.Thread(target=warm, daemon=True).start()
+    _warm_in_background()
     yield
 
 
@@ -69,8 +81,20 @@ def _app_zone(zone_id: str) -> str:
 # --------------------------------------------------------------------------------------------
 @app.get("/api/health")
 def health() -> dict:
-    return {"ok": True, "model": "loaded", "ollama": STATE["ollama"], "ollama_model": DEFAULT_MODEL,
-            "ollama_url": OLLAMA_URL, "readings": len(core.readings().store)}
+    """Checked live on every call. ollama: loaded | loading | not_loaded | missing | unavailable."""
+    status = ollama_status()
+    if _warming.is_set() and status["state"] != "loaded":
+        status = {"state": "loading", "detail": "loading into memory in the background"}
+    return {"ok": True, "model": "loaded", "ollama": status["state"], "ollama_detail": status["detail"],
+            "ollama_model": DEFAULT_MODEL, "ollama_url": OLLAMA_URL, "keep_alive": KEEP_ALIVE,
+            "readings": len(core.readings().store)}
+
+
+@app.post("/api/warmup")
+def warmup() -> dict:
+    """Load the language model into memory now (e.g. right before a demo). Returns immediately."""
+    started = _warm_in_background()
+    return {"started": started, "ollama": "loading" if started or _warming.is_set() else ollama_status()["state"]}
 
 
 @app.get("/api/scenarios")

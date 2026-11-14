@@ -18,7 +18,8 @@ retries the backend every 30 s. Ollama is optional too: without it, the language
 
 | | | returns |
 |---|---|---|
-| `GET /api/health` | model, Ollama and readings status | |
+| `GET /api/health` | live status: model, readings, and whether Ollama's model is `loaded` / `loading` / `not_loaded` / `missing` / `unavailable` | |
+| `POST /api/warmup` | load the language model into memory now (do this right before a demo); returns immediately | |
 | `GET /api/overview?date&hour&scenario` | one hour of a day; today's current hour uses live readings | `GymOverview` |
 | `GET /api/forecast?date&scenario&preference&hour` | the whole day, per zone, plus the recommended quiet window | `ForecastResult` |
 | `GET /api/zones/{appZoneId}?date&hour&scenario` | one summary zone (without layout metadata) | `ZoneDetails` minus `zone` |

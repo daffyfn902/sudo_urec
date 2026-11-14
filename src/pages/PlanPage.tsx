@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Check, ChevronDown, Compass } from 'lucide-react'
+import { Link, useLocation } from 'react-router-dom'
+import { ChevronDown, Compass } from 'lucide-react'
 import { WorkoutPreferenceSelector } from '../components/ui/WorkoutPreferenceSelector'
 import { ForecastChart } from '../components/ui/ForecastChart'
 import { RecommendationCard } from '../components/ui/RecommendationCard'
 import { ScenarioInput } from '../components/ui/ScenarioInput'
+import { LiftSaveForm } from '../components/social/LiftSaveForm'
 import { api } from '../services/api'
+import { social, SocialUnavailable } from '../services/social'
 import { useSavedPlans } from '../hooks/useSavedPlans'
 import type { ForecastResult, ScenarioKnobs, WorkoutPreference } from '../data/types'
 import { GYM_ZONES } from '../data/zones'
@@ -19,8 +21,9 @@ export function PlanPage() {
   const [scenarios, setScenarios] = useState<ScenarioKnobs[]>([])
   const [forecast, setForecast] = useState<ForecastResult | null>(null)
   const [loading, setLoading] = useState(true)
-  const [savedFlash, setSavedFlash] = useState(false)
   const { save } = useSavedPlans()
+  // Coming from "Invite to a lift" on the Friends page
+  const preInvite = (useLocation().state as { invite?: string } | null)?.invite
 
   useEffect(() => {
     void api.getScenarios().then(setScenarios)
@@ -40,8 +43,9 @@ export function PlanPage() {
     }
   }, [date, preference, scenarioId])
 
-  const handleSave = () => {
-    if (!forecast) return
+  /** Save the recommended window as a lift in the database; on-device storage is the fallback. */
+  const handleSave = async (invite: string[], note: string): Promise<'database' | 'device'> => {
+    if (!forecast) throw new Error('The forecast is still loading')
     const recommended = forecast.recommendedWindow
     const matchingZones = GYM_ZONES.filter(
       (z) => preference === 'any' || z.preference === preference,
@@ -55,9 +59,7 @@ export function PlanPage() {
       })
       .sort((a, b) => a.occ - b.occ)[0]
 
-    save({
-      id: crypto.randomUUID(),
-      createdAt: new Date().toISOString(),
+    const plan = {
       date,
       timeLabel: recommended.label,
       hour: recommended.startHour,
@@ -68,9 +70,15 @@ export function PlanPage() {
       recommendedZoneLabel: quietest?.zone.label,
       scenarioId: forecast.scenario?.id,
       scenarioLabel: forecast.scenario?.label,
-    })
-    setSavedFlash(true)
-    globalThis.setTimeout(() => setSavedFlash(false), 1800)
+    }
+    try {
+      await social.createLift({ ...plan, endHour: recommended.endHour, note, invite })
+      return 'database'
+    } catch (err) {
+      if (!(err instanceof SocialUnavailable)) throw err
+      save({ ...plan, id: crypto.randomUUID(), createdAt: new Date().toISOString() })
+      return 'device'
+    }
   }
 
   const today = todayISODate()
@@ -179,15 +187,11 @@ export function PlanPage() {
                 expectedStatus={forecast.recommendedWindow.expectedStatus}
                 expectedOccupancyPercent={forecast.recommendedWindow.expectedOccupancyPercent}
                 action={
-                  <button type="button" onClick={handleSave} className="btn-primary w-full">
-                    {savedFlash ? (
-                      <>
-                        <Check className="h-4 w-4" /> Saved
-                      </>
-                    ) : (
-                      'Save plan'
-                    )}
-                  </button>
+                  <LiftSaveForm
+                    key={`${date}-${forecast.recommendedWindow.startHour}`}
+                    onSave={handleSave}
+                    initialInvite={preInvite ? [preInvite] : []}
+                  />
                 }
               />
 

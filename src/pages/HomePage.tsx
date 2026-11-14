@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { ArrowRight, CalendarClock, Compass, Map as MapIcon } from 'lucide-react'
 import { AskBox } from '../components/ui/AskBox'
 import { BestTimeCard } from '../components/ui/BestTimeCard'
+import { FriendsHereCard } from '../components/social/FriendsHereCard'
 import { ForecastChart } from '../components/ui/ForecastChart'
 import { OccupancyCard } from '../components/ui/OccupancyCard'
 import { TrafficBadge } from '../components/ui/TrafficBadge'
@@ -74,8 +75,10 @@ export function HomePage() {
         ))}
       </nav>
 
-      <div className="mt-4">
+      <div className="mt-4 space-y-4">
         <AskBox />
+        {/* Hidden by the card itself when the friends database is offline */}
+        <FriendsHereCard />
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-5">

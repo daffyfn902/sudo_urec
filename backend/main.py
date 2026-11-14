@@ -17,6 +17,7 @@ from datetime import date, datetime
 import httpx
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from llm.answer import answer as llm_answer
@@ -24,7 +25,7 @@ from llm.parse import (DEFAULT_MODEL, KEEP_ALIVE, OLLAMA_URL, WEEK_WORDS, ollama
                        upcoming_finals, warm_up)
 from ml.predict import load_model
 
-from . import core
+from . import core, db, social
 
 _warming = threading.Event()     # set while a background model load is running
 
@@ -59,6 +60,14 @@ app = FastAPI(title="Comfort Zone API", version="0.1.0", lifespan=lifespan,
               description="UREC crowd forecasts for the Comfort Zone app. All data is simulated.")
 app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
                    allow_methods=["*"], allow_headers=["*"])
+app.include_router(social.router)
+
+
+@app.exception_handler(db.DatabaseUnavailable)
+def database_unavailable(_, __) -> JSONResponse:
+    """Friends, check-ins and lifts need Postgres; forecasts keep working without it."""
+    return JSONResponse(status_code=503, content={
+        "detail": "The database isn't running. Start it with: python -m backend.db start"})
 
 
 def _hour(hour: int | None) -> int:
@@ -87,7 +96,7 @@ def health() -> dict:
         status = {"state": "loading", "detail": "loading into memory in the background"}
     return {"ok": True, "model": "loaded", "ollama": status["state"], "ollama_detail": status["detail"],
             "ollama_model": DEFAULT_MODEL, "ollama_url": OLLAMA_URL, "keep_alive": KEEP_ALIVE,
-            "readings": len(core.readings().store)}
+            "readings": len(core.readings().store), "database": "up" if db.is_up() else "down"}
 
 
 @app.post("/api/warmup")

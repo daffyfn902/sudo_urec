@@ -49,19 +49,30 @@ Response shapes match `src/data/types.ts`.
 
 ## Friends, check-ins and lifts (PostgreSQL)
 
-These features store their data in a small local Postgres database. It runs as a project-only cluster in
-`data/postgres` on **port 5433**, using the PostgreSQL programs already installed on your machine
-([download](https://www.postgresql.org/download/) if you don't have them). No admin rights or password needed.
+These features store their data in a small Postgres database on **port 5433** of your own machine.
+
+**With Docker (recommended):** install [Docker Desktop](https://www.docker.com/products/docker-desktop/), make sure
+it's running, then from the repo root:
 
 ```bash
-python -m backend.db setup     # first time: create the cluster, start it, create tables, seed test users
-python -m backend.db start     # after a reboot
-python -m backend.db reset     # wipe the social data and re-seed
-python -m backend.db status    # is it up, and row counts
-python -m backend.db stop
+docker compose up -d       # starts Postgres; the first start creates the tables and seeds the test users
+docker compose down        # stop it (data is kept)
+docker compose down -v     # stop it and wipe the data; the next `up` re-seeds
 ```
 
-To use another Postgres server instead, set `DATABASE_URL` and run `python -m backend.db reset` to create the tables.
+**Without Docker:** if PostgreSQL is installed on your machine, `python -m backend.db setup` creates a project-only
+cluster in `data/postgres` instead (`start` / `stop` after that). Don't run both: they use the same port.
+
+Either way:
+
+```bash
+python -m backend.db status    # is it up, and row counts
+python -m backend.db reset     # wipe the social data and re-seed the test users
+```
+
+Each person's database is their own: data isn't shared between teammates' computers. The tables come from
+`backend/schema.sql` and the test data from `backend/seed.sql`. To use another Postgres server, set `DATABASE_URL`
+and run `python -m backend.db reset`.
 
 **Test users** (seeded): `nathan`, `ryan`, `carter`, `maya`. Nathan, Ryan and Carter are friends; Maya has sent Nathan
 a friend request; Ryan and Maya are checked in at UREC; Ryan has a lift tomorrow 7-9 AM with Nathan invited

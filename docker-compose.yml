@@ -1,0 +1,31 @@
+# PostgreSQL for the friends / check-ins / lifts features.
+#
+#   docker compose up -d      start it (first start creates the tables and seeds the test users)
+#   docker compose down       stop it, keeping the data
+#   docker compose down -v    stop it and wipe the data (the next `up` re-seeds)
+#
+# The backend connects to localhost:5433 by default (backend/db.py), so nothing else needs configuring.
+services:
+  db:
+    image: postgres:17
+    container_name: comfort-zone-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: comfort
+      POSTGRES_PASSWORD: comfort   # local demo database; the port below is reachable from this machine only
+      POSTGRES_DB: comfort_zone
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - comfort-zone-db:/var/lib/postgresql/data
+      # Run once, in name order, when the data volume is empty
+      - ./backend/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./backend/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U comfort -d comfort_zone"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  comfort-zone-db:

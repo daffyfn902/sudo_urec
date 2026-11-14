@@ -2230,7 +2230,7 @@
     EXO.on = on; EXO.target = on ? 1 : 0;
     document.getElementById('mode-ext').setAttribute('aria-pressed', String(on));
     exoInternal = true; focus(0); exoInternal = false;
-    if (on) { var v = viewExterior(); anim = { t: 0, p0: camera.position.clone(), p1: v.pos, g0: controls.target.clone(), g1: v.tgt }; document.getElementById('subtitle').textContent = 'Exterior · ' + sourceLabel; }
+    if (on) { var v = viewExterior(); anim = { t: 0, p0: camera.position.clone(), p1: v.pos, g0: controls.target.clone(), g1: v.tgt }; document.getElementById('subtitle').textContent = 'Exterior · tap the building to go inside'; }
   }
 
   FLOORS.forEach(function (D) {
@@ -2537,7 +2537,7 @@
       sourceLabel = typeof data.label === 'string' && data.label && data.label !== 'Forecast' ? data.label : 'Simulated';
       applyTime(); updateTrack();
       var sub = document.getElementById('subtitle');
-      sub.textContent = sub.textContent.replace(/ · .*$/, ' · ' + sourceLabel);
+      if (!EXO.on) sub.textContent = sub.textContent.replace(/ · .*$/, ' · ' + sourceLabel);   // keep the "tap the building" hint while outside
     }
   });
   try {
@@ -2558,7 +2558,12 @@
 
   function resize() { var w = window.innerWidth, h = window.innerHeight; renderer.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix(); }
   window.addEventListener('resize', resize); resize();
-  (function () { var v = viewFor(0); camera.position.copy(v.pos.clone().sub(v.tgt).multiplyScalar(1.35).add(v.tgt)); controls.target.copy(v.tgt); setTimeout(function () { focus(0); }, 120); })();   // gentle fly-in on load
+  // Open on the outside of the building; tap it, pick a floor or press Exterior to go inside. ?view=floors skips straight to the floors.
+  (function () {
+    var v = viewFor(0); camera.position.copy(v.pos.clone().sub(v.tgt).multiplyScalar(1.35).add(v.tgt)); controls.target.copy(v.tgt);
+    var startInside = /[?&]view=floors\b/.test(window.location.search);
+    setTimeout(function () { if (startInside) focus(0); else setExterior(true); }, 120);   // gentle fly-in on load
+  })();
 
   var clock = new THREE.Clock(), tmp = new THREE.Vector3();
   var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;

@@ -109,6 +109,8 @@ export interface AskResult {
   understood: string
   /** Hourly data behind the answer, averaged over the zones asked about */
   slots: Array<{ date: string; hour: number; pct: number }>
+  /** How the question was read: by the language model, the keyword fallback, or not at all */
+  request?: { source: 'llm' | 'keyword' | 'default'; intent: string }
 }
 
 /** One real zone (of 25) at one hour, from GET /api/day: for the 3D map */

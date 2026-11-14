@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { ArrowUpRight, Compass } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { AskBox } from '../components/ui/AskBox'
 import { OccupancyCard } from '../components/ui/OccupancyCard'
 import { ForecastChart } from '../components/ui/ForecastChart'
 import { TrafficBadge } from '../components/ui/TrafficBadge'
@@ -35,21 +36,28 @@ export function HomePage() {
         </p>
       </header>
 
-      {loading || !overview ? (
-        <div className="space-y-4">
+      <div className="mb-4 space-y-4">
+        {loading || !overview ? (
           <div className="card-surface h-44 animate-pulse bg-jmu-lavender/40" />
-          <div className="card-surface h-32 animate-pulse bg-jmu-lavender/30" />
-          <div className="card-surface h-40 animate-pulse bg-jmu-lavender/25" />
-        </div>
-      ) : (
-        <div className="space-y-4">
+        ) : (
           <OccupancyCard
             status={overview.status}
             occupancyPercent={overview.overallOccupancyPercent}
             headcount={overview.estimatedHeadcount}
             hourLabel={formatHour(overview.currentHour)}
           />
+        )}
+        {/* Always shown, even while the overview loads */}
+        <AskBox />
+      </div>
 
+      {loading || !overview ? (
+        <div className="space-y-4">
+          <div className="card-surface h-32 animate-pulse bg-jmu-lavender/30" />
+          <div className="card-surface h-40 animate-pulse bg-jmu-lavender/25" />
+        </div>
+      ) : (
+        <div className="space-y-4">
           <Link
             to="/map"
             className="pressable group flex items-center justify-between rounded-[18px] bg-jmu-purple px-5 py-4 text-white shadow-[var(--shadow-float)] transition-colors hover:bg-jmu-purple-dark"

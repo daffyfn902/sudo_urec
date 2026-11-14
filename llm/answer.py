@@ -59,6 +59,41 @@ def forecast(req: Request) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=["date", "hour", "pct", "week_type"])
 
 
+TIME_OF_DAY = [("Morning", 6, 10), ("Midday", 11, 15), ("Evening", 16, 22)]
+
+
+def spread_picks(fc: pd.DataFrame, n: int = 3) -> list[tuple[str | None, object]]:
+    """Up to n quiet slots that aren't all the same. When the question covers most of the day
+    (10+ hours): one per time of day (morning, midday, evening), preferring different days.
+    Otherwise: the quietest slots at least 2 hours apart and, across several days, on different
+    days. Narrow windows may return fewer than n rather than near-duplicates."""
+    rows = fc.sort_values(["pct", "date", "hour"])
+    buckets = [(name, rows[rows["hour"].between(a, b)]) for name, a, b in TIME_OF_DAY]
+    buckets = [(name, b) for name, b in buckets if not b.empty]
+    picks: list[tuple[str | None, object]] = []
+    used_days: set = set()
+
+    if rows["hour"].max() - rows["hour"].min() >= 10 and len(buckets) >= 2:
+        for name, b in buckets[:n]:
+            fresh = b[~b["date"].isin(used_days)]
+            r = (fresh if not fresh.empty else b).iloc[0]
+            used_days.add(r.date)
+            picks.append((name, r))
+        return picks
+
+    multi_day = rows["date"].nunique() > 1
+    for r in rows.itertuples():
+        if multi_day and r.date in used_days:
+            continue
+        if any(p.date == r.date and abs(p.hour - r.hour) < 2 for _, p in picks):
+            continue
+        picks.append((None, r))
+        used_days.add(r.date)
+        if len(picks) == n:
+            break
+    return picks
+
+
 def understood(req: Request) -> str:
     """The "here's what I understood" line."""
     parts = []
@@ -94,11 +129,12 @@ def answer(req: Request) -> dict:
     lines: list[str] = []
 
     if req.intent == "best_time":
-        quiet = fc.nsmallest(3, "pct")
+        picks = spread_picks(fc)
         busy = fc.nlargest(1, "pct").iloc[0]
         lines.append(f"Quietest times for {where}:")
-        lines += [f"{dot(r.pct)} **{when(r)}**: about {r.pct:.0f}% full" for r in quiet.itertuples()]
-        if busy.pct >= 40:
+        lines += [f"{dot(r.pct)} **{when(r)}**{f' ({label.lower()})' if label else ''}: about {r.pct:.0f}% full"
+                  for label, r in picks]
+        if busy.pct >= 40 and not any(p.date == busy.date and p.hour == busy.hour for _, p in picks):
             lines.append(f"Busiest: {when(busy)} (about {busy.pct:.0f}%).")
 
     elif req.intent == "how_busy":

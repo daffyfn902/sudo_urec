@@ -1,4 +1,4 @@
-# UREC Crowd Map
+# UREC Radar
 
 A premium, mobile-first web app for James Madison University students to visualize simulated UREC gym crowds, explore a 3D floor map, and plan quieter workout times.
 

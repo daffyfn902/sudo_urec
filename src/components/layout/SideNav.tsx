@@ -2,7 +2,7 @@ import { Link, NavLink } from 'react-router-dom'
 import { Building2 } from 'lucide-react'
 import { NAV_ITEMS } from './navItems'
 import { useOverview } from '../../hooks/useOverview'
-import { trafficColor, trafficLabel } from '../../utils/traffic'
+import { busyColor, trafficLabel } from '../../utils/traffic'
 import { formatHour } from '../../utils/time'
 
 /** Desktop navigation: always visible, shows how busy the gym is right now. */
@@ -20,7 +20,7 @@ export function SideNav() {
         </span>
         <span className="leading-tight">
           <span className="block text-[15px] font-semibold tracking-[-0.02em] text-ink">
-            UREC Crowd Map
+            UREC Radar
           </span>
           <span className="block text-[12px] text-ink-muted">James Madison University</span>
         </span>
@@ -65,7 +65,7 @@ export function SideNav() {
               <span className="flex items-center gap-2 text-[14px] font-semibold text-ink">
                 <span
                   className="h-2.5 w-2.5 rounded-full"
-                  style={{ backgroundColor: trafficColor(overview.status) }}
+                  style={{ backgroundColor: busyColor(overview.overallOccupancyPercent) }}
                 />
                 {trafficLabel(overview.status)} traffic
               </span>
@@ -78,7 +78,7 @@ export function SideNav() {
                 className="h-full rounded-full"
                 style={{
                   width: `${overview.overallOccupancyPercent}%`,
-                  backgroundColor: trafficColor(overview.status),
+                  backgroundColor: busyColor(overview.overallOccupancyPercent),
                 }}
               />
             </div>

@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowRight, CalendarClock, Compass, Map as MapIcon } from 'lucide-react'
 import { AskBox } from '../components/ui/AskBox'
@@ -8,7 +9,10 @@ import { OccupancyCard } from '../components/ui/OccupancyCard'
 import { TrafficBadge } from '../components/ui/TrafficBadge'
 import { PageHeader } from '../components/layout/PageHeader'
 import { useOverview } from '../hooks/useOverview'
-import { formatHour } from '../utils/time'
+import { api } from '../services/api'
+import type { DayZoneReading } from '../data/types'
+import { busiestZonesAt } from '../utils/sync'
+import { formatHour, sliderNow, todayISODate } from '../utils/time'
 
 const QUICK_LINKS = [
   { to: '/map', label: '3D map', hint: 'See every zone', icon: MapIcon },
@@ -23,6 +27,19 @@ function greeting(): string {
 
 export function HomePage() {
   const { overview, loading } = useOverview()
+  // Per-zone forecast for today: the same data the 3D map is coloured with
+  const [day, setDay] = useState<DayZoneReading[]>([])
+  useEffect(() => {
+    let cancelled = false
+    void api.getDay(todayISODate()).then((rows) => {
+      if (!cancelled) setDay(rows)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+  const mapZones = busiestZonesAt(day, sliderNow())
+  const busiest = mapZones.length > 0 ? mapZones : (overview?.busiestZones ?? [])
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
 
   return (
@@ -109,7 +126,7 @@ export function HomePage() {
             <div className="h-40 animate-pulse rounded-xl bg-jmu-lavender/30" />
           ) : (
             <ul className="divide-y divide-border">
-              {overview.busiestZones.map((zone, index) => (
+              {busiest.map((zone, index) => (
                 <li key={zone.zoneId} className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
                   <div className="flex min-w-0 items-center gap-3">
                     <span className="w-4 text-[13px] font-semibold tabular-nums text-ink-subtle">{index + 1}</span>

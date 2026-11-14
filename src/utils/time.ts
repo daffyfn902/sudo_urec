@@ -50,3 +50,13 @@ export function shiftISODate(iso: string, days: number): string {
   date.setDate(date.getDate() + days)
   return toISODate(date)
 }
+
+/**
+ * The map's time slider position for "now": the current time rounded to 15 minutes and kept inside opening hours.
+ * Matches nowSliderValue() in public/urec-3d.html.
+ */
+export function sliderNow(): number {
+  const d = new Date()
+  const nowH = d.getHours() + d.getMinutes() / 60
+  return Math.max(OPEN_HOUR, Math.min(CLOSE_HOUR, Math.round(nowH * 4) / 4))
+}

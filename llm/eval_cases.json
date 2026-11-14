@@ -1,0 +1,484 @@
+{
+ "_note": "Scored with today = Friday 2026-11-13 and the current hour = 15. Only the listed fields are checked; a list means any of those values is accepted. 'dev' was used while tuning the keyword rules and prompt, so its scores are optimistic. 'holdout' was written afterwards and run once, untuned: use it for the honest number.",
+ "today": "2026-11-13",
+ "now_hour": 15,
+ "dev": [
+  {
+   "text": "When's the best time to lift tomorrow?",
+   "expect": {
+    "intent": "best_time",
+    "start": "2026-11-14",
+    "end": "2026-11-14",
+    "area": "weights"
+   }
+  },
+  {
+   "text": "is the gym busy rn",
+   "expect": {
+    "intent": "how_busy",
+    "start": "2026-11-13",
+    "hour_from": 15,
+    "hour_to": 15
+   }
+  },
+  {
+   "text": "Is the pool packed tonight?",
+   "expect": {
+    "intent": "how_busy",
+    "start": "2026-11-13",
+    "hour_from": 17,
+    "hour_to": 22,
+    "area": "pool"
+   }
+  },
+  {
+   "text": "I want to shoot hoops after my 3pm class on Tuesday",
+   "expect": {
+    "intent": [
+     "best_time",
+     "how_busy"
+    ],
+    "start": "2026-11-17",
+    "hour_from": 16,
+    "hour_to": 22,
+    "area": "courts"
+   }
+  },
+  {
+   "text": "anytime good to run in the morning this week?",
+   "expect": {
+    "intent": "best_time",
+    "start": "2026-11-13",
+    "end": "2026-11-19",
+    "hour_from": 6,
+    "hour_to": 11,
+    "area": "track"
+   }
+  },
+  {
+   "text": "Show me how busy it'll be next week",
+   "expect": {
+    "intent": "overview",
+    "start": "2026-11-16",
+    "end": "2026-11-22"
+   }
+  },
+  {
+   "text": "how's MAC 1 looking on Monday",
+   "expect": {
+    "intent": [
+     "how_busy",
+     "overview"
+    ],
+    "start": "2026-11-16",
+    "zone": "L2_mac1"
+   }
+  },
+  {
+   "text": "I'm new and kind of nervous, when's the quietest time to try the weight room this week?",
+   "expect": {
+    "intent": "best_time",
+    "start": "2026-11-13",
+    "end": "2026-11-19",
+    "area": "weights"
+   }
+  },
+  {
+   "text": "What if it's finals week and raining?",
+   "expect": {
+    "intent": [
+     "best_time",
+     "overview",
+     "how_busy"
+    ],
+    "start": "2026-11-13",
+    "overrides": {
+     "week_type": "finals",
+     "weather": "rain"
+    }
+   }
+  },
+  {
+   "text": "how busy will cardio be during finals",
+   "expect": {
+    "intent": [
+     "overview",
+     "how_busy"
+    ],
+    "start": "2026-12-07",
+    "end": "2026-12-11",
+    "area": "cardio",
+    "overrides": {}
+   }
+  },
+  {
+   "text": "next tuesday if it snows",
+   "expect": {
+    "intent": [
+     "overview",
+     "how_busy",
+     "best_time"
+    ],
+    "start": "2026-11-17",
+    "end": "2026-11-17",
+    "overrides": {
+     "weather": "snow"
+    }
+   }
+  },
+  {
+   "text": "big intramural tournament tonight, should I still lift?",
+   "expect": {
+    "intent": [
+     "best_time",
+     "how_busy"
+    ],
+    "start": "2026-11-13",
+    "hour_from": 17,
+    "area": "weights",
+    "overrides": {
+     "event_load": 0.9
+    }
+   }
+  },
+  {
+   "text": "finals",
+   "expect": {
+    "intent": [
+     "overview",
+     "how_busy"
+    ],
+    "start": "2026-12-07",
+    "end": "2026-12-11"
+   }
+  },
+  {
+   "text": "is it busy at 3am",
+   "expect": {
+    "intent": "how_busy",
+    "hour_from": 3,
+    "hour_to": 3
+   }
+  },
+  {
+   "text": "wats the best tiem to swim tmrw",
+   "expect": {
+    "intent": "best_time",
+    "start": "2026-11-14",
+    "area": "pool"
+   }
+  },
+  {
+   "text": "what's the capital of France",
+   "expect": {
+    "intent": "unknown"
+   }
+  },
+  {
+   "text": "best time for spin class this weekend",
+   "expect": {
+    "intent": "best_time",
+    "start": "2026-11-14",
+    "end": "2026-11-15",
+    "area": "classes"
+   }
+  },
+  {
+   "text": "how crowded is the climbing wall at 6",
+   "expect": {
+    "intent": "how_busy",
+    "hour_from": 18,
+    "hour_to": 18,
+    "area": "climbing"
+   }
+  },
+  {
+   "text": "can I get a treadmill around lunch tomorrow",
+   "expect": {
+    "intent": [
+     "best_time",
+     "how_busy"
+    ],
+    "start": "2026-11-14",
+    "hour_from": 11,
+    "hour_to": 14,
+    "area": "cardio"
+   }
+  },
+  {
+   "text": "show me december 1st",
+   "expect": {
+    "intent": "overview",
+    "start": "2026-12-01",
+    "end": "2026-12-01"
+   }
+  },
+  {
+   "text": "pretend it's spring break, when should I swim",
+   "expect": {
+    "intent": "best_time",
+    "start": "2026-11-13",
+    "area": "pool",
+    "overrides": {
+     "week_type": "spring_break"
+    }
+   }
+  },
+  {
+   "text": "is the fitness center slammed on friday evenings",
+   "expect": {
+    "intent": "how_busy",
+    "start": "2026-11-13",
+    "hour_from": 17,
+    "hour_to": 22,
+    "area": "weights"
+   }
+  },
+  {
+   "text": "quietest day to play volleyball next week",
+   "expect": {
+    "intent": [
+     "best_time",
+     "overview"
+    ],
+    "start": "2026-11-16",
+    "end": "2026-11-22",
+    "area": "courts"
+   }
+  },
+  {
+   "text": "hot day today, how busy is the pool",
+   "expect": {
+    "intent": "how_busy",
+    "start": "2026-11-13",
+    "area": "pool",
+    "overrides": {
+     "weather": "hot"
+    }
+   }
+  },
+  {
+   "text": "write me a poem about squirrels",
+   "expect": {
+    "intent": "unknown"
+   }
+  },
+  {
+   "text": "when do people usually hit the gym on sundays",
+   "expect": {
+    "intent": [
+     "overview",
+     "best_time",
+     "how_busy"
+    ],
+    "start": "2026-11-15"
+   }
+  }
+ ],
+ "holdout": [
+  {
+   "text": "yo is urec dead around 8 tmrw morning",
+   "expect": {
+    "intent": [
+     "how_busy",
+     "best_time"
+    ],
+    "start": "2026-11-14",
+    "hour_from": 8,
+    "hour_to": 8
+   }
+  },
+  {
+   "text": "when's the weight room least crowded on wednesday",
+   "expect": {
+    "intent": "best_time",
+    "start": "2026-11-18",
+    "end": "2026-11-18",
+    "area": "weights"
+   }
+  },
+  {
+   "text": "lap swim busy this saturday?",
+   "expect": {
+    "intent": [
+     "how_busy",
+     "overview"
+    ],
+    "start": "2026-11-14",
+    "area": "pool"
+   }
+  },
+  {
+   "text": "Is the track crowded after 5?",
+   "expect": {
+    "intent": "how_busy",
+    "start": "2026-11-13",
+    "hour_from": [
+     17,
+     18
+    ],
+    "hour_to": 22,
+    "area": "track"
+   }
+  },
+  {
+   "text": "thinking about going to a spin class next thursday, will it be full?",
+   "expect": {
+    "intent": [
+     "how_busy",
+     "best_time"
+    ],
+    "start": "2026-11-19",
+    "area": "classes"
+   }
+  },
+  {
+   "text": "show me the whole thanksgiving week",
+   "expect": {
+    "intent": "overview",
+    "start": [
+     "2026-11-21",
+     "2026-11-23"
+    ]
+   }
+  },
+  {
+   "text": "if it's pouring tomorrow will the indoor track be packed",
+   "expect": {
+    "intent": "how_busy",
+    "start": "2026-11-14",
+    "area": "track",
+    "overrides": {
+     "weather": "rain"
+    }
+   }
+  },
+  {
+   "text": "best time to climb this weekend",
+   "expect": {
+    "intent": "best_time",
+    "start": "2026-11-14",
+    "end": "2026-11-15",
+    "area": "climbing"
+   }
+  },
+  {
+   "text": "how busy is the cardio deck at noon on monday",
+   "expect": {
+    "intent": "how_busy",
+    "start": "2026-11-16",
+    "hour_from": [
+     11,
+     12
+    ],
+    "hour_to": [
+     12,
+     14
+    ],
+    "zone": "L3_cardio_deck"
+   }
+  },
+  {
+   "text": "can you book me a court",
+   "expect": {
+    "intent": "unknown"
+   }
+  },
+  {
+   "text": "midterms are next week, how slammed will the fitness center be",
+   "expect": {
+    "intent": [
+     "how_busy",
+     "overview"
+    ],
+    "start": "2026-11-16",
+    "end": "2026-11-22",
+    "zone": "L2_fitness",
+    "overrides": {
+     "week_type": "midterms"
+    }
+   }
+  },
+  {
+   "text": "it's snowing like crazy, is anyone even at the gym rn",
+   "expect": {
+    "intent": "how_busy",
+    "start": "2026-11-13",
+    "hour_from": 15,
+    "hour_to": 15,
+    "overrides": {
+     "weather": "snow"
+    }
+   }
+  },
+  {
+   "text": "quietest hour today for basketball",
+   "expect": {
+    "intent": "best_time",
+    "start": "2026-11-13",
+    "end": "2026-11-13",
+    "area": "courts"
+   }
+  },
+  {
+   "text": "what's usually the busiest time of day",
+   "expect": {
+    "intent": [
+     "overview",
+     "how_busy",
+     "best_time"
+    ],
+    "start": "2026-11-13"
+   }
+  },
+  {
+   "text": "how many people are on the running track at 7pm friday",
+   "expect": {
+    "intent": "how_busy",
+    "start": "2026-11-13",
+    "hour_from": 19,
+    "hour_to": 19,
+    "zone": "L4_track"
+   }
+  },
+  {
+   "text": "recommend a good protein powder",
+   "expect": {
+    "intent": "unknown"
+   }
+  },
+  {
+   "text": "should I go swim on dec 9",
+   "expect": {
+    "intent": [
+     "best_time",
+     "how_busy"
+    ],
+    "start": "2026-12-09",
+    "end": "2026-12-09",
+    "area": "pool"
+   }
+  },
+  {
+   "text": "volleyball tonight w/ intramurals, crowded?",
+   "expect": {
+    "intent": "how_busy",
+    "start": "2026-11-13",
+    "hour_from": 17,
+    "hour_to": 22,
+    "area": "courts",
+    "overrides": [
+     {
+      "event_load": 0.3
+     },
+     {
+      "event_load": 0.6
+     },
+     {
+      "event_load": 0.9
+     }
+    ]
+   }
+  }
+ ]
+}

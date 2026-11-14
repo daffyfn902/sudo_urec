@@ -1,5 +1,6 @@
 import { Bookmark } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { PageHeader } from '../components/layout/PageHeader'
 import { SavedPlanCard } from '../components/ui/SavedPlanCard'
 import { useSavedPlans } from '../hooks/useSavedPlans'
 
@@ -8,10 +9,18 @@ export function SavedPage() {
 
   return (
     <div className="page-shell safe-top">
-      <header className="mb-7">
-        <h1 className="page-title">Saved</h1>
-        <p className="page-subtitle">Workout windows stored on this device.</p>
-      </header>
+      <PageHeader
+        eyebrow="Saved"
+        title="Your plans"
+        subtitle="Workout windows you saved. They're stored on this device."
+        actions={
+          plans.length > 0 ? (
+            <Link to="/plan" className="btn-ghost hidden sm:inline-flex">
+              Add another
+            </Link>
+          ) : undefined
+        }
+      />
 
       {plans.length === 0 ? (
         <div className="card-surface flex flex-col items-center px-6 py-16 text-center">
@@ -24,13 +33,13 @@ export function SavedPage() {
           </p>
           <Link
             to="/plan"
-            className="pressable mt-6 rounded-[14px] bg-jmu-purple px-5 py-3 text-[14px] font-semibold text-white hover:bg-jmu-purple-dark"
+            className="btn-primary mt-6 px-5 py-3"
           >
             Find a time
           </Link>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="grid gap-3 md:grid-cols-2">
           {plans.map((plan) => (
             <SavedPlanCard key={plan.id} plan={plan} onRemove={remove} />
           ))}

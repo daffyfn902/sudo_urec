@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Check, ChevronLeft, ChevronRight, Compass } from 'lucide-react'
+import { Check, ChevronDown, Compass } from 'lucide-react'
 import { WorkoutPreferenceSelector } from '../components/ui/WorkoutPreferenceSelector'
 import { ForecastChart } from '../components/ui/ForecastChart'
 import { RecommendationCard } from '../components/ui/RecommendationCard'
@@ -9,13 +9,8 @@ import { api } from '../services/api'
 import { useSavedPlans } from '../hooks/useSavedPlans'
 import type { ForecastResult, ScenarioKnobs, WorkoutPreference } from '../data/types'
 import { GYM_ZONES } from '../data/zones'
-import { formatDisplayDate, todayISODate } from '../utils/time'
-
-function shiftDate(iso: string, days: number): string {
-  const date = new Date(`${iso}T12:00:00`)
-  date.setDate(date.getDate() + days)
-  return date.toISOString().slice(0, 10)
-}
+import { PageHeader } from '../components/layout/PageHeader'
+import { shiftISODate, todayISODate } from '../utils/time'
 
 export function PlanPage() {
   const [date, setDate] = useState(todayISODate)
@@ -78,114 +73,147 @@ export function PlanPage() {
     globalThis.setTimeout(() => setSavedFlash(false), 1800)
   }
 
+  const today = todayISODate()
+  const days = Array.from({ length: 7 }, (_, i) => shiftISODate(today, i))
+  const activeScenario = scenarios.find((s) => s.id === scenarioId)
+
   return (
     <div className="page-shell safe-top">
-      <header className="mb-7">
-        <h1 className="page-title">Best time</h1>
-        <p className="page-subtitle">
-          Choose a day and workout style for a quieter simulated window.
-        </p>
-      </header>
+      <PageHeader
+        eyebrow="Plan"
+        title="Find your best time"
+        subtitle="Pick a day and what you plan to do. We'll suggest the quietest window."
+      />
 
-      <div className="space-y-4">
-        <section className="card-surface p-4 sm:p-5">
-          <p className="section-label mb-3">Day</p>
-          <div className="flex items-center justify-between gap-3">
-            <button
-              type="button"
-              onClick={() => setDate((d) => shiftDate(d, -1))}
-              className="pressable rounded-full p-2.5 text-ink-muted hover:bg-jmu-lavender hover:text-ink"
-              aria-label="Previous day"
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </button>
-            <div className="text-center">
-              <p className="text-[17px] font-semibold tracking-[-0.02em] text-ink">
-                {formatDisplayDate(date)}
-              </p>
-              {date === todayISODate() && (
-                <p className="mt-0.5 text-[12px] font-medium text-jmu-purple">Today</p>
-              )}
+      <div className="grid gap-5 lg:grid-cols-[22rem_1fr] lg:items-start lg:gap-6">
+        {/* Choices */}
+        <div className="space-y-4 lg:sticky lg:top-6">
+          <section className="card-surface p-4 sm:p-5" aria-labelledby="day-heading">
+            <h2 id="day-heading" className="section-label mb-3">
+              Day
+            </h2>
+            <div className="grid grid-cols-7 gap-1.5" role="group" aria-label="Choose a day">
+              {days.map((iso) => {
+                const d = new Date(`${iso}T12:00:00`)
+                const active = iso === date
+                return (
+                  <button
+                    key={iso}
+                    type="button"
+                    onClick={() => setDate(iso)}
+                    aria-pressed={active}
+                    aria-label={d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+                    className={[
+                      'pressable flex flex-col items-center rounded-[12px] border py-2 transition-colors',
+                      active
+                        ? 'border-jmu-purple bg-jmu-purple text-white shadow-sm'
+                        : 'border-border bg-surface text-ink hover:border-border-strong hover:bg-jmu-lavender/40',
+                    ].join(' ')}
+                  >
+                    <span className={['text-[10px] font-semibold uppercase', active ? 'text-white/75' : 'text-ink-subtle'].join(' ')}>
+                      {iso === today ? 'Today' : d.toLocaleDateString('en-US', { weekday: 'short' })}
+                    </span>
+                    <span className="mt-0.5 text-[15px] font-semibold tabular-nums">{d.getDate()}</span>
+                  </button>
+                )
+              })}
             </div>
-            <button
-              type="button"
-              onClick={() => setDate((d) => shiftDate(d, 1))}
-              className="pressable rounded-full p-2.5 text-ink-muted hover:bg-jmu-lavender hover:text-ink"
-              aria-label="Next day"
-            >
-              <ChevronRight className="h-5 w-5" />
-            </button>
-          </div>
-        </section>
+            <label className="mt-3 flex items-center justify-between gap-3 text-[12px] text-ink-muted">
+              Another date
+              <input
+                type="date"
+                value={date}
+                onChange={(e) => e.target.value && setDate(e.target.value)}
+                className="rounded-[10px] border border-border bg-jmu-mist px-2.5 py-1.5 text-[13px] text-ink"
+              />
+            </label>
+          </section>
 
-        <section className="card-surface p-4 sm:p-5">
-          <p className="section-label mb-3">Preference</p>
-          <WorkoutPreferenceSelector value={preference} onChange={setPreference} />
-        </section>
+          <section className="card-surface p-4 sm:p-5" aria-labelledby="pref-heading">
+            <h2 id="pref-heading" className="section-label mb-3">
+              Workout style
+            </h2>
+            <WorkoutPreferenceSelector value={preference} onChange={setPreference} />
+          </section>
 
-        <ScenarioInput
-          scenarios={scenarios}
-          activeScenarioId={scenarioId}
-          onSelectScenario={setScenarioId}
-          onApplyText={async (text) => {
-            const matched = await api.applyScenario(text)
-            if (matched) {
-              setScenarioId(matched.id === 'normal' ? null : matched.id)
-            }
-            return matched
-          }}
-        />
-
-        {loading || !forecast ? (
-          <div className="card-surface h-48 animate-pulse bg-jmu-lavender/40" />
-        ) : (
-          <>
-            <RecommendationCard
-              label={forecast.recommendedWindow.label}
-              reason={forecast.recommendedWindow.reason}
-              expectedStatus={forecast.recommendedWindow.expectedStatus}
-              expectedOccupancyPercent={forecast.recommendedWindow.expectedOccupancyPercent}
-              action={
-                <button
-                  type="button"
-                  onClick={handleSave}
-                  className="pressable inline-flex w-full items-center justify-center gap-2 rounded-[14px] bg-jmu-purple py-3 text-[14px] font-semibold text-white transition-colors hover:bg-jmu-purple-dark"
-                >
-                  {savedFlash ? (
-                    <>
-                      <Check className="h-4 w-4" /> Saved
-                    </>
-                  ) : (
-                    'Save Plan'
-                  )}
-                </button>
-              }
-            />
-
-            <ForecastChart
-              data={forecast.overview.hourlyForecast}
-              height={170}
-              highlightHour={forecast.recommendedWindow.startHour}
-            />
-
-            <Link
-              to="/explore"
-              className="pressable card-surface flex items-center gap-3 px-4 py-4 transition-colors hover:border-border-strong hover:bg-jmu-lavender/30"
-            >
-              <span className="flex h-9 w-9 items-center justify-center rounded-[12px] bg-jmu-lavender text-jmu-purple">
-                <Compass className="h-4 w-4" aria-hidden />
+          <details className="card-surface group" open={Boolean(scenarioId)}>
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 sm:p-5 [&::-webkit-details-marker]:hidden">
+              <span>
+                <span className="card-title block">What if…</span>
+                <span className="mt-0.5 block text-[12px] text-ink-muted">
+                  {activeScenario ? `Using “${activeScenario.label}”` : 'Finals week, rain, breaks and more'}
+                </span>
               </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-[14px] font-semibold tracking-[-0.02em] text-ink">
-                  Explore Something New
-                </p>
-                <p className="mt-0.5 text-[12px] text-ink-muted">
-                  Discover a beginner-friendly challenge in another zone
-                </p>
-              </div>
-            </Link>
-          </>
-        )}
+              <ChevronDown className="h-4 w-4 shrink-0 text-ink-subtle transition-transform group-open:rotate-180" aria-hidden />
+            </summary>
+            <div className="border-t border-border p-4 sm:p-5">
+              <ScenarioInput
+                compact
+                scenarios={scenarios}
+                activeScenarioId={scenarioId}
+                onSelectScenario={setScenarioId}
+                onApplyText={async (text) => {
+                  const matched = await api.applyScenario(text)
+                  if (matched) {
+                    setScenarioId(matched.id === 'normal' ? null : matched.id)
+                  }
+                  return matched
+                }}
+              />
+            </div>
+          </details>
+        </div>
+
+        {/* Result */}
+        <div className="space-y-4">
+          {loading || !forecast ? (
+            <>
+              <div className="card-surface h-48 animate-pulse bg-jmu-lavender/40" />
+              <div className="card-surface h-60 animate-pulse bg-jmu-lavender/30" />
+            </>
+          ) : (
+            <>
+              <RecommendationCard
+                label={forecast.recommendedWindow.label}
+                reason={forecast.recommendedWindow.reason}
+                expectedStatus={forecast.recommendedWindow.expectedStatus}
+                expectedOccupancyPercent={forecast.recommendedWindow.expectedOccupancyPercent}
+                action={
+                  <button type="button" onClick={handleSave} className="btn-primary w-full">
+                    {savedFlash ? (
+                      <>
+                        <Check className="h-4 w-4" /> Saved
+                      </>
+                    ) : (
+                      'Save plan'
+                    )}
+                  </button>
+                }
+              />
+
+              <ForecastChart
+                title="Crowd through the day"
+                data={forecast.overview.hourlyForecast}
+                height={220}
+                highlightHour={forecast.recommendedWindow.startHour}
+                highlightLabel="Best"
+              />
+
+              <Link
+                to="/explore"
+                className="pressable card-surface flex items-center gap-3 px-4 py-4 transition-colors hover:border-border-strong hover:bg-jmu-lavender/30"
+              >
+                <span className="flex h-9 w-9 items-center justify-center rounded-[12px] bg-jmu-lavender text-jmu-purple">
+                  <Compass className="h-4 w-4" aria-hidden />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="card-title">Explore something new</p>
+                  <p className="mt-0.5 text-[12px] text-ink-muted">Try a beginner-friendly challenge in another zone</p>
+                </div>
+              </Link>
+            </>
+          )}
+        </div>
       </div>
     </div>
   )

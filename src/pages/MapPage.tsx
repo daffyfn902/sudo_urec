@@ -117,8 +117,7 @@ export function MapPage() {
         ref={iframeRef}
         src="/urec-3d.html"
         title="3D UREC building map"
-        className="absolute inset-x-0 top-0 block w-full border-0 bg-[#E9EDF4]"
-        style={{ height: 'calc(100dvh - 72px - env(safe-area-inset-bottom, 0px))' }}
+        className="map-frame absolute inset-x-0 top-0 block w-full border-0 bg-[#E9EDF4]"
         onLoad={() => {
           setIframeReady(true)
           if (previewZoneId) postFocusZone(iframeRef.current, previewZoneId)

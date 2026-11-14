@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Compass, Dumbbell, Footprints, Shuffle, Sparkles, Volleyball } from 'lucide-react'
+import { PageHeader } from '../components/layout/PageHeader'
 import { ChallengeCard } from '../components/explore/ChallengeCard'
 import { useChallengeProgress } from '../hooks/useChallengeProgress'
 import { zoneOccupancyAt } from '../hooks/useGymData'
@@ -154,16 +155,13 @@ export function ExplorePage() {
 
   return (
     <div className="page-shell safe-top">
-      <header className="mb-7">
-        <p className="section-label text-jmu-purple">Explore Something New</p>
-        <h1 className="page-title mt-1.5">Step outside your usual</h1>
-        <p className="page-subtitle">
-          Pick a comfort level and interest — we will suggest a short, low-pressure challenge in a
-          real UREC zone. Occupancy is simulated.
-        </p>
-      </header>
+      <PageHeader
+        eyebrow="Explore"
+        title="Step outside your usual"
+        subtitle="Pick a comfort level and an interest. We'll suggest a short, low-pressure challenge in a real UREC zone. Occupancy is simulated."
+      />
 
-      <div className="space-y-4">
+      <div className="max-w-2xl space-y-4">
         <section className="card-surface grid grid-cols-2 gap-3 p-4 sm:p-5" aria-label="Your progress">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-ink-subtle">

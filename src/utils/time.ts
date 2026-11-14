@@ -38,3 +38,15 @@ export function formatDisplayDate(iso: string): string {
     day: 'numeric',
   })
 }
+
+/** Local date as YYYY-MM-DD (toISOString would shift to UTC and roll over to tomorrow in the evening). */
+export function toISODate(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
+export function shiftISODate(iso: string, days: number): string {
+  const date = new Date(`${iso}T12:00:00`)
+  date.setDate(date.getDate() + days)
+  return toISODate(date)
+}

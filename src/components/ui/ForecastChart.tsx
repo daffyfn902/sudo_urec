@@ -2,6 +2,7 @@ import {
   Area,
   AreaChart,
   CartesianGrid,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -15,6 +16,9 @@ interface ForecastChartProps {
   height?: number
   compact?: boolean
   highlightHour?: number
+  /** Short text on the highlighted hour's marker line, e.g. "Now" or "Best" */
+  highlightLabel?: string
+  title?: string
 }
 
 export function ForecastChart({
@@ -22,18 +26,21 @@ export function ForecastChart({
   height = 160,
   compact = false,
   highlightHour,
+  highlightLabel,
+  title = 'Hourly forecast',
 }: ForecastChartProps) {
+  const highlightX = data.find((d) => d.hour === highlightHour)?.label
   return (
     <div className={compact ? '' : 'card-surface p-4 sm:p-5'}>
       {!compact && (
         <div className="mb-3 flex items-baseline justify-between">
-          <h3 className="text-sm font-semibold text-ink">Hourly forecast</h3>
-          <span className="text-[11px] text-ink-subtle">Simulated</span>
+          <h3 className="card-title">{title}</h3>
+          <span className="text-[11px] text-ink-subtle">% of capacity · simulated</span>
         </div>
       )}
       <div style={{ height }} className="w-full">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data} margin={{ top: 8, right: 4, left: -18, bottom: 0 }}>
+          <AreaChart data={data} margin={{ top: 10, right: 8, left: 0, bottom: 0 }}>
             <defs>
               <linearGradient id="forecastFill" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#450084" stopOpacity={0.2} />
@@ -54,8 +61,9 @@ export function ForecastChart({
               tick={{ fontSize: 10, fill: '#77758A', fontWeight: 500 }}
               tickLine={false}
               axisLine={false}
-              tickFormatter={(v) => `${v}`}
-              width={32}
+              ticks={[0, 25, 50, 75, 100]}
+              tickFormatter={(v) => `${v}%`}
+              width={40}
             />
             <Tooltip
               contentStyle={{
@@ -68,6 +76,19 @@ export function ForecastChart({
               formatter={(value) => [`${value}%`, 'Occupied']}
               labelFormatter={(label) => String(label)}
             />
+            {highlightX && (
+              <ReferenceLine
+                x={highlightX}
+                stroke="#450084"
+                strokeOpacity={0.35}
+                strokeDasharray="3 3"
+                label={
+                  highlightLabel
+                    ? { value: highlightLabel, position: 'insideTopRight', fontSize: 10, fontWeight: 600, fill: '#450084' }
+                    : undefined
+                }
+              />
+            )}
             <Area
               type="monotone"
               dataKey="occupancyPercent"

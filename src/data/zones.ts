@@ -1,0 +1,75 @@
+import type { GymZone } from './types'
+
+export const GYM_ZONES: GymZone[] = [
+  {
+    id: 'free-weights',
+    label: 'Free Weights',
+    floor: 1,
+    capacity: 80,
+    preference: 'weights',
+    description: 'Dumbbells, barbells, and open platforms.',
+    position: [-3.2, 0.05, -1.5],
+    size: [3.4, 0.12, 2.8],
+    color: '#5b2a9e',
+  },
+  {
+    id: 'cardio',
+    label: 'Cardio',
+    floor: 1,
+    capacity: 60,
+    preference: 'cardio',
+    description: 'Treadmills, bikes, and ellipticals.',
+    position: [0.6, 0.05, -1.5],
+    size: [3.2, 0.12, 2.8],
+    color: '#6b2fb5',
+  },
+  {
+    id: 'basketball-courts',
+    label: 'Basketball Courts',
+    floor: 1,
+    capacity: 100,
+    preference: 'courts',
+    description: 'Full and half-court play spaces.',
+    position: [-1.4, 0.05, 2.2],
+    size: [5.6, 0.12, 3.6],
+    color: '#450084',
+  },
+  {
+    id: 'upstairs-strength',
+    label: 'Upstairs Strength',
+    floor: 2,
+    capacity: 50,
+    preference: 'weights',
+    description: 'Machines and selectorized strength equipment.',
+    position: [-3.0, 2.55, -1.2],
+    size: [3.0, 0.12, 2.4],
+    color: '#7a3fc4',
+  },
+  {
+    id: 'indoor-track',
+    label: 'Indoor Track',
+    floor: 2,
+    capacity: 40,
+    preference: 'cardio',
+    description: 'Elevated indoor running track.',
+    position: [0.8, 2.55, -1.2],
+    size: [3.6, 0.12, 2.4],
+    color: '#8b52d4',
+  },
+  {
+    id: 'functional-training',
+    label: 'Functional Training',
+    floor: 2,
+    capacity: 35,
+    preference: 'weights',
+    description: 'Turf, racks, and functional training gear.',
+    position: [-1.0, 2.55, 2.0],
+    size: [4.8, 0.12, 2.8],
+    color: '#5e2a9a',
+  },
+]
+
+export const ZONE_BY_ID = Object.fromEntries(GYM_ZONES.map((z) => [z.id, z])) as Record<
+  string,
+  GymZone
+>

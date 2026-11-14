@@ -24,9 +24,9 @@ python -m ml.predict 2026-12-07 finals
 
 | | MAE (pp) | right low/moderate/high label |
 |---|---|---|
-| same zone/weekday/hour average | 11.4 | 78% |
-| same hour last week | 12.0 | 78% |
-| **LightGBM** | **6.7** | **87%** |
+| same zone/weekday/hour average | 12.2 | 73% |
+| same hour last week | 13.0 | 74% |
+| **LightGBM** | **7.1** | **85%** |
 
 ## Held-out finals test (`reports/finals_test.png`)
 
@@ -34,14 +34,17 @@ Trained with every finals day removed (max `academic_stress` 0.72), tested on 20
 
 | | MAE (pp) | bias (pp) | right label |
 |---|---|---|---|
-| historical average | 15.2 | +10.7 | 73% |
-| LightGBM | 8.5 | -1.2 | 84% |
-| LightGBM `linear_tree` | 8.1 | -1.1 | 85% |
-| LightGBM trained *with* finals (reference) | 6.2 | -2.2 | 88% |
+| historical average | 15.1 | +13.0 | 68% |
+| **LightGBM** | **7.9** | +2.2 | 84% |
+| LightGBM `linear_tree` | 8.2 | -1.6 | 86% |
+| LightGBM trained *with* finals (reference) | 6.2 | +0.2 | 90% |
 
-The baseline assumes a normal week and guesses about 11 points too busy. LightGBM, with no finals examples, closes most of the
-gap to the reference model. Where it still misses is the late-night finals rush (10 PM): stress above 0.72 never
-appeared in training, and trees can't extrapolate past what they've seen.
+The baseline assumes a normal week and guesses about 13 points too busy. LightGBM, with no finals examples, closes most of the
+gap to the reference model (7.9 vs 6.2). It still runs about 2 points high, because finals combine stress above anything in
+training (max 0.72) with students leaving campus, and trees can't extrapolate past what they've seen.
+
+Numbers are from the current simulator (weekday peak 1-3 PM, plateau to 8 PM; see `sim/README.md`). They change
+whenever the simulator does: rerun `python -m ml.train` and `python -m ml.finals_test` and update this table.
 
 ## For the API
 

@@ -8,19 +8,19 @@ Trained on 2023-24, 2024-25; scored on 2025-26 (90,789 open zone-hours). MAE and
 
 |  | mae_pp | bias_pp | status_acc |
 |---|---|---|---|
-| hist_mean | 11.41 | 0.27 | 0.775 |
-| last_week | 11.97 | 0.2 | 0.781 |
-| lightgbm | 6.69 | 0.02 | 0.874 |
+| hist_mean | 12.24 | 0.54 | 0.73 |
+| last_week | 12.99 | 0.28 | 0.74 |
+| lightgbm | 7.14 | 0.24 | 0.853 |
 
 ## MAE by week type
 
 | week_type | hist_mean | last_week | lightgbm |
 |---|---|---|---|
-| finals | 14.44 | 12.68 | 6.22 |
-| first_week | 15.25 | 15.25 | 8.56 |
-| midterms | 8.31 | 12.39 | 7.03 |
-| post_new_year | 12.46 | 21.38 | 8.02 |
-| regular | 9.26 | 11.47 | 7.38 |
-| spring_break | 16.8 | 16.45 | 3.73 |
-| thanksgiving_break | 17.15 | 15.62 | 3.75 |
-| winter_break | 19.13 | 6.72 | 3.5 |
+| finals | 14.4 | 14.32 | 6.16 |
+| first_week | 17.3 | 17.3 | 9.14 |
+| midterms | 8.3 | 13.0 | 7.41 |
+| post_new_year | 13.63 | 22.13 | 8.93 |
+| regular | 9.53 | 12.36 | 7.9 |
+| spring_break | 19.61 | 17.04 | 4.08 |
+| thanksgiving_break | 19.74 | 19.5 | 3.85 |
+| winter_break | 22.23 | 7.55 | 3.63 |

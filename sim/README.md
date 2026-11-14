@@ -4,7 +4,25 @@
 pip install -r sim/requirements.txt
 python -m sim.generate     # about 20 s -> data/synthetic/urec_hourly.parquet + daily_knobs.csv
 python -m sim.check        # invariants, behaviour stats, reports/sim_check.png
+python -m sim.calibrate    # only after changing the daily pattern (see below), about 1 min
 ```
+
+## Changing the daily pattern
+
+The main gym zones (weights, cardio, courts, tracks, lockers, stretching) share one hourly shape,
+`GYM_SHAPE` in `sim/simulator.py`. Don't edit it by hand: set the pattern you want in
+`TARGET_WEEKDAY_PCT` (overall % of open capacity on an average regular weekday, 6 AM to 10 PM) and run
+`python -m sim.calibrate`. It simulates, compares, nudges the shape and repeats, then writes the fitted
+`GYM_SHAPE` back. The shape isn't the target itself because stress, novelty, Friday evenings, zone quirks
+and the class, pool and café schedules all act on top of it.
+
+Then rebuild everything downstream: `python -m sim.generate`, `python -m sim.check`, `python -m ml.train`,
+`python -m ml.finals_test`, and restart the backend.
+
+Current target: builds through the morning, **peaks 1-3 PM (about 60%)**, dips slightly, **holds about 50%
+until 8 PM**, then falls to 20% by 10 PM. The fit is within about 2 points on average. The biggest gaps
+(+5 at 7 AM and noon, -5 at 8 PM) come from early lap swim, cycle classes and the lunch rush, which follow
+their own schedules.
 
 Same seed gives the same data. `data/synthetic/` is gitignored, so regenerate it locally.
 `data/sample/urec_sample.csv` (one regular week plus fall 2025 finals) is committed so the
@@ -42,7 +60,9 @@ for academic years 2023-24 through 2026-27 (about 434k rows).
 ## What the hidden rules do
 
 - Busiest to quietest: first week, then post New Year, regular, midterms, finals, breaks.
-- Higher stress pushes peaks later (the Fitness Center peaks around 7 PM normally, 9 PM in finals).
+- Weekdays peak 1-3 PM and stay busy until about 8 PM. The Fitness Center peaks at 2 PM; its evenings run
+  lower (about 43%) because intramurals and evening classes carry more of the evening crowd.
+- Higher stress pushes the day later (by `1.25 × stress` hours, so about 1.2 hours in finals).
 - Students leave during finals week, so it empties out by Friday.
 - Rain and snow move people onto the tracks; hot days fill the pools.
 - Evening intramurals pack the courts.

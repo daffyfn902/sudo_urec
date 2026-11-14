@@ -40,9 +40,18 @@ CURVES: dict[str, tuple[list[tuple[float, float, float]], float]] = {
     "wellness": ([(0.30, 11.0, 2.0), (0.35, 15.0, 2.0)], 0.03),
 }
 ZONE_CURVE = {
-    "L1_main_pool": "lap_pool", "L1_multi_pool": "rec_pool", "L1_cafe": "cafe", "L1_lockers": "lockers",
-    "L4_stretch": "stretch", "L1_adventure": "adventure", "L2_wellness": "wellness",
+    "L1_main_pool": "lap_pool", "L1_multi_pool": "rec_pool", "L1_cafe": "cafe", "L1_lockers": "gym",
+    "L4_stretch": "gym", "L1_adventure": "adventure", "L2_wellness": "wellness",
 }
+
+# Main gym traffic, set point by point for hours 6:00..22:00 (fraction of capacity on a weekday,
+# before knobs and zone quirks). Pattern from UREC observations: builds through the morning, peaks
+# 1-3 PM, dips slightly, holds steady until 8 PM, then falls off. Calibrated with sim/calibrate.py so
+# an average regular weekday across all of UREC matches TARGET_WEEKDAY_PCT.
+TARGET_WEEKDAY_PCT = [5, 11, 15, 19, 27, 39, 50, 58, 60, 57, 49, 51, 52, 52, 50, 35, 20]
+GYM_SHAPE = [0.010, 0.068, 0.178, 0.300, 0.438, 0.576, 0.691, 0.872, 0.943, 0.859, 0.712, 0.605, 0.559, 0.582, 0.545, 0.359, 0.117]
+POINT_CURVES = {"gym": GYM_SHAPE}
+CATEGORY_CURVE = {"weights": "gym", "cardio": "gym", "courts": "gym", "track": "gym"}
 
 # Scheduled classes: hours a class runs in each room (weekday, weekend)
 CLASS_SCHEDULE = {
@@ -92,6 +101,9 @@ def load_zones() -> list[Zone]:
 
 
 def _curve(name: str, h: np.ndarray) -> np.ndarray:
+    if name in POINT_CURVES:
+        pts = POINT_CURVES[name]
+        return np.interp(h, np.arange(6, 6 + len(pts)), pts, left=pts[0], right=pts[-1])
     bumps, floor = CURVES[name]
     out = np.full_like(h, floor, dtype=float)
     for amp, mu, sd in bumps:
@@ -109,8 +121,8 @@ def _base_shape(z: Zone, dow: int, stress: float, rng: np.random.Generator) -> n
             fill[HOURS == s] = rng.uniform(0.55, 0.9)
         return fill
 
-    shift = 2.5 * stress + z.peak_offset + (1.5 if weekend else 0.0)
-    shape = _curve(ZONE_CURVE.get(z.id, z.category), HOURS - shift)
+    shift = 1.25 * stress + z.peak_offset + (1.5 if weekend else 0.0)
+    shape = _curve(ZONE_CURVE.get(z.id) or CATEGORY_CURVE.get(z.category, z.category), HOURS - shift)
     if weekend:
         shape *= 0.7
         if dow == 6:

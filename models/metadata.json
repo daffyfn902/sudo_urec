@@ -1,5 +1,5 @@
 {
-  "trained_at": "2026-11-14T02:22:51+00:00",
+  "trained_at": "2026-11-14T16:22:28+00:00",
   "trained_on": [
     "2023-24",
     "2024-25",
@@ -35,19 +35,19 @@
   "validation": {
     "year": "2025-26",
     "hist_mean": {
-      "mae_pp": 11.41,
-      "bias_pp": 0.27,
-      "status_acc": 0.775
+      "mae_pp": 12.24,
+      "bias_pp": 0.54,
+      "status_acc": 0.73
     },
     "last_week": {
-      "mae_pp": 11.97,
-      "bias_pp": 0.2,
-      "status_acc": 0.781
+      "mae_pp": 12.99,
+      "bias_pp": 0.28,
+      "status_acc": 0.74
     },
     "lightgbm": {
-      "mae_pp": 6.69,
-      "bias_pp": 0.02,
-      "status_acc": 0.874
+      "mae_pp": 7.14,
+      "bias_pp": 0.24,
+      "status_acc": 0.853
     }
   }
 }

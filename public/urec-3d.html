@@ -1550,15 +1550,29 @@
   function colourFor(o) { return o < 0.5 ? GREEN.clone().lerp(YELLOW, o / 0.5) : YELLOW.clone().lerp(RED, (o - 0.5) / 0.5); }
   function levelFor(o) { return o < 0.4 ? 'Low' : o < 0.75 ? 'Moderate' : 'High'; }
   var slider = document.getElementById('slider'), timeEl = document.getElementById('time');
+
+  // Forecast from the app's backend (GET /api/day), sent in with a 'urec:occupancy' message.
+  // live[zoneId][hour] = { pct: 0-100, open: bool }. Without it, zones use their built-in curve().
+  var live = null, sourceLabel = 'Simulated';
+  function liveAt(z, t) {
+    var byHour = live && live[z.id];
+    if (!byHour) return null;
+    var h = Math.min(Math.floor(t), 22), p0 = byHour[h], p1 = byHour[Math.min(h + 1, 22)];
+    if (!p0) return null;
+    if (!p0.open) return { occ: 0, open: false };
+    var f = Math.min(1, t - h), v1 = p1 && p1.open ? p1.pct : p0.pct;   // blend between hours as the slider moves
+    return { occ: (p0.pct + (v1 - p0.pct) * f) / 100, open: true };
+  }
   function applyTime() {
     var t = parseFloat(slider.value), h = Math.floor(t), m = Math.round((t - h) * 60);
     timeEl.textContent = ((h + 11) % 12 + 1) + ':' + (m < 10 ? '0' : '') + m + (h < 12 ? ' AM' : ' PM');
     zones.forEach(function (z) {
-      var o = Math.max(0, Math.min(1, z.curve(t))), c = colourFor(o);
+      var l = liveAt(z, t), o = Math.max(0, Math.min(1, l ? l.occ : z.curve(t))), c = colourFor(o);
       z.occ = o;
       if (!z.targetColor) z.targetColor = c.clone(); else z.targetColor.copy(c);
       if (!z.displayColor) { z.displayColor = c.clone(); z.mat.color.copy(c); }
-      z.label.el.innerHTML = '<i class="dot" style="background:#' + c.getHexString() + '"></i>' + z.name + '<small>' + levelFor(o) + ' · ' + Math.round(o * 100) + '%</small>';
+      var detail = l && !l.open ? 'Closed' : levelFor(o) + ' · ' + Math.round(o * 100) + '%';
+      z.label.el.innerHTML = '<i class="dot" style="background:#' + c.getHexString() + '"></i>' + z.name + '<small>' + detail + '</small>';
     });
     runners.forEach(function (r) { r.active = Math.round(r.zone.occ * r.list.length); });
   }
@@ -1644,7 +1658,7 @@
     });
     applyHighlight();
     document.getElementById('title').textContent = z.name;
-    document.getElementById('subtitle').textContent = 'Level ' + z.floor + ' · Simulated';
+    document.getElementById('subtitle').textContent = 'Level ' + z.floor + ' · ' + sourceLabel;
     Array.prototype.forEach.call(document.querySelectorAll('#floors button'), function (b) {
       b.setAttribute('aria-pressed', String(+b.dataset.f === focused));
     });
@@ -1669,7 +1683,7 @@
     });
     applyHighlight();
     document.getElementById('title').textContent = 'UREC';
-    document.getElementById('subtitle').textContent = (n ? 'Level ' + n : 'All floors') + ' · Simulated';
+    document.getElementById('subtitle').textContent = (n ? 'Level ' + n : 'All floors') + ' · ' + sourceLabel;
     Array.prototype.forEach.call(document.querySelectorAll('#floors button'), function (b) { b.setAttribute('aria-pressed', String(+b.dataset.f === n)); });
     var v = viewFor(n); anim = { t: 0, p0: camera.position.clone(), p1: v.pos, g0: controls.target.clone(), g1: v.tgt };
   }
@@ -1684,6 +1698,18 @@
       focusZone(String(data.zoneId), data.floor ? +data.floor : 0);
     } else if (data.type === 'urec:clear-highlight') {
       clearHighlight();
+    } else if (data.type === 'urec:occupancy' && data.zones && typeof data.zones === 'object') {
+      // { zones: { L2_fitness: [{ hour, pct, open }, ...], ... }, label?: 'Forecast · Finals week' }
+      live = {};
+      Object.keys(data.zones).forEach(function (id) {
+        var byHour = {};
+        (data.zones[id] || []).forEach(function (p) { byHour[+p.hour] = { pct: +p.pct, open: !!p.open }; });
+        live[id] = byHour;
+      });
+      sourceLabel = typeof data.label === 'string' && data.label ? data.label : 'Forecast';
+      applyTime();
+      var sub = document.getElementById('subtitle');
+      sub.textContent = sub.textContent.replace(/ · .*$/, ' · ' + sourceLabel);
     }
   });
   try {

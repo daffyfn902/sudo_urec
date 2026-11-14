@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { CHALLENGE_BY_ID, ZONE_TO_MAP_FOCUS } from '../data/challenges'
-import type { Challenge, ZoneDetails } from '../data/types'
+import type { Challenge, DayZoneReading, ZoneDetails } from '../data/types'
 import { ZoneDetailSheet } from '../components/ui/ZoneDetailSheet'
 import { useChallengeProgress } from '../hooks/useChallengeProgress'
 import { api } from '../services/api'
+import { todayISODate } from '../utils/time'
 
 interface MapLocationState {
   challengeId?: string
@@ -28,6 +29,19 @@ function postClearHighlight(iframe: HTMLIFrameElement | null) {
   iframe?.contentWindow?.postMessage({ type: 'urec:clear-highlight' }, window.location.origin)
 }
 
+/** Send the backend's hourly forecast for all 25 real zones into the 3D map. */
+function postOccupancy(iframe: HTMLIFrameElement | null, day: DayZoneReading[]) {
+  if (!iframe?.contentWindow || day.length === 0) return
+  const zones: Record<string, Array<{ hour: number; pct: number; open: boolean }>> = {}
+  for (const r of day) {
+    ;(zones[r.zoneId] ??= []).push({ hour: r.hour, pct: r.occupancyPercent, open: r.isOpen })
+  }
+  iframe.contentWindow.postMessage(
+    { type: 'urec:occupancy', zones, label: 'Forecast' },
+    window.location.origin,
+  )
+}
+
 export function MapPage() {
   const location = useLocation()
   const navigate = useNavigate()
@@ -38,6 +52,7 @@ export function MapPage() {
 
   const [iframeReady, setIframeReady] = useState(false)
   const [zoneDetails, setZoneDetails] = useState<ZoneDetails | null>(null)
+  const [day, setDay] = useState<DayZoneReading[]>([])
   const activeChallenge: Challenge | null = previewChallengeId
     ? (CHALLENGE_BY_ID[previewChallengeId] ?? null)
     : null
@@ -62,6 +77,21 @@ export function MapPage() {
     if (!iframeReady || !previewZoneId) return
     postFocusZone(iframeRef.current, previewZoneId)
   }, [iframeReady, previewZoneId])
+
+  // Today's forecast for every real zone. Empty if the backend is off: the map then keeps its built-in curves.
+  useEffect(() => {
+    let cancelled = false
+    void api.getDay(todayISODate()).then((rows) => {
+      if (!cancelled) setDay(rows)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    if (iframeReady) postOccupancy(iframeRef.current, day)
+  }, [iframeReady, day])
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {

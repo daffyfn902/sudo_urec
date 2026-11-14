@@ -15,7 +15,7 @@ interface OccupancyCardProps {
 
 function AnimatedNumber({ value }: { value: number }) {
   const reduceMotion = usePrefersReducedMotion()
-  const spring = useSpring(value, { stiffness: 120, damping: 20 })
+  const spring = useSpring(value, { stiffness: 140, damping: 22 })
   const display = useTransform(spring, (v) => Math.round(v))
 
   useEffect(() => {
@@ -39,55 +39,59 @@ export function OccupancyCard({
   const accent = trafficColor(status)
 
   return (
-    <div
-      className={[
-        'card-surface relative overflow-hidden',
-        compact ? 'p-4' : 'p-5 sm:p-6',
-      ].join(' ')}
-    >
-      <div
-        className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full opacity-20 blur-2xl"
-        style={{ background: accent }}
-      />
-      <div className="relative flex items-start justify-between gap-3">
+    <div className={['card-surface', compact ? 'p-4' : 'p-5 sm:p-6'].join(' ')}>
+      <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-xs font-medium uppercase tracking-wider text-ink-subtle">
-            {hourLabel ? `Simulated · ${hourLabel}` : 'Simulated occupancy'}
-          </p>
-          <h2 className={['mt-1 font-bold tracking-tight text-ink', compact ? 'text-2xl' : 'text-3xl sm:text-4xl'].join(' ')}>
+          <p className="section-label">{hourLabel ? `Now · ${hourLabel}` : 'Now'}</p>
+          <h2
+            className={[
+              'mt-1 font-semibold tracking-[-0.03em] text-ink',
+              compact ? 'text-[1.4rem]' : 'text-[1.65rem] sm:text-[1.85rem]',
+            ].join(' ')}
+          >
             {status === 'low' ? 'Low' : status === 'moderate' ? 'Moderate' : 'High'} traffic
           </h2>
         </div>
         <TrafficBadge status={status} />
       </div>
 
-      <div className={['relative mt-5 flex items-end gap-6', compact ? 'mt-4' : ''].join(' ')}>
+      <div className={['mt-5 flex items-end gap-5', compact ? 'mt-4' : ''].join(' ')}>
         <div>
-          <p className={['font-bold tabular-nums text-jmu-purple', compact ? 'text-3xl' : 'text-4xl sm:text-5xl'].join(' ')}>
+          <p
+            className={[
+              'font-semibold tabular-nums tracking-[-0.04em] text-jmu-purple',
+              compact ? 'text-[2.1rem]' : 'text-[2.6rem] sm:text-[3rem]',
+            ].join(' ')}
+          >
             <AnimatedNumber value={occupancyPercent} />
-            <span className="text-xl text-jmu-purple-light">%</span>
+            <span className="text-[1.05rem] font-semibold text-jmu-purple-light">%</span>
           </p>
-          <p className="mt-1 text-sm text-ink-muted">of capacity</p>
+          <p className="mt-0.5 text-[13px] text-ink-muted">of capacity</p>
         </div>
-        <div className="mb-1 h-10 w-px bg-border-strong" />
+        <div className="mb-1.5 h-9 w-px bg-border" />
         <div>
-          <p className={['font-semibold tabular-nums text-ink', compact ? 'text-xl' : 'text-2xl'].join(' ')}>
+          <p
+            className={[
+              'font-semibold tabular-nums tracking-[-0.03em] text-ink',
+              compact ? 'text-xl' : 'text-[1.55rem]',
+            ].join(' ')}
+          >
             ~<AnimatedNumber value={headcount} />
           </p>
-          <p className="mt-1 text-sm text-ink-muted">people inside</p>
+          <p className="mt-0.5 text-[13px] text-ink-muted">people inside</p>
         </div>
       </div>
 
-      <div className="relative mt-5 h-2 overflow-hidden rounded-full bg-jmu-lavender-mid">
+      <div className="mt-5 h-1.5 overflow-hidden rounded-full bg-jmu-lavender-mid">
         <motion.div
           className="h-full rounded-full"
           style={{ backgroundColor: accent }}
           initial={false}
           animate={{ width: `${occupancyPercent}%` }}
-          transition={{ type: 'spring', stiffness: 100, damping: 20 }}
+          transition={{ type: 'spring', stiffness: 110, damping: 22 }}
         />
       </div>
-      <p className="mt-3 text-[11px] text-ink-subtle">Demo data — not live UREC headcounts</p>
+      <p className="mt-3 text-[11px] text-ink-subtle">Simulated demo data</p>
     </div>
   )
 }

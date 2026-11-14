@@ -2,55 +2,220 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>UREC – 3D building preview</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>UREC – 3D Crowd Map</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  html, body { margin: 0; height: 100%; overflow: hidden; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: #eaf4ff; }
-  body { background: radial-gradient(ellipse at 50% 35%, #3f6ea5 0%, #1d3a63 55%, #0d1b33 100%); }
+  :root {
+    --bg: #F8F9FC;
+    --canvas: #E9EDF4;
+    --surface: #FFFFFF;
+    --ink: #202437;
+    --ink-muted: #697386;
+    --ink-dim: #94A3B8;
+    --purple: #450084;
+    --purple-soft: #EEE7F7;
+    --border: #DDE3EC;
+    --traffic-low: #16A66A;
+    --traffic-mod: #F4B740;
+    --traffic-high: #E34B55;
+    --shadow: 0 2px 8px rgba(32, 36, 55, 0.05), 0 12px 32px rgba(32, 36, 55, 0.08);
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; height: 100%; overflow: hidden;
+    font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: var(--ink); letter-spacing: -0.011em;
+  }
+  body {
+    background:
+      radial-gradient(ellipse 75% 55% at 50% 38%, #f4f6fa 0%, transparent 62%),
+      var(--canvas);
+  }
   canvas { display: block; position: absolute; inset: 0; touch-action: none; }
-  #head { position: absolute; left: 16px; top: 14px; right: 16px; pointer-events: none; }
-  #head h1 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: .02em; }
-  #head p { margin: 3px 0 0; font-size: 12px; opacity: .75; max-width: 48ch; }
-  .label { position: absolute; transform: translate(-50%, -50%); font-size: 10.5px; white-space: nowrap; pointer-events: none;
-           padding: 2px 6px; border-radius: 9px; background: rgba(10, 24, 48, .5); border: 1px solid rgba(255,255,255,.18); }
-  .label.zone { font-weight: 600; font-size: 11.5px; background: rgba(10, 24, 48, .68); border-color: rgba(255,255,255,.3); }
-  .label.floor { font-weight: 600; font-size: 12px; pointer-events: auto; cursor: pointer; background: rgba(10, 24, 48, .75); border-color: rgba(255,255,255,.4); }
-  .label small { font-weight: 400; opacity: .85; margin-left: 5px; }
-  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; }
-  #panel { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); width: min(480px, calc(100% - 28px)); box-sizing: border-box;
-           padding: 10px 14px 12px; border-radius: 14px; background: rgba(10, 24, 48, .66); border: 1px solid rgba(255,255,255,.2); backdrop-filter: blur(6px); }
-  #floors { display: flex; gap: 6px; margin-bottom: 10px; }
-  #floors button { flex: 1; padding: 7px 0; font: inherit; font-size: 13px; color: inherit; cursor: pointer; border-radius: 9px;
-                   background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.22); }
-  #floors button[aria-pressed="true"] { background: #cfe8ff; color: #0d1b33; font-weight: 600; border-color: #cfe8ff; }
-  #row { display: flex; justify-content: space-between; align-items: baseline; font-size: 13px; }
-  #time { font-weight: 600; font-size: 15px; }
-  #panel input { width: 100%; margin: 8px 0 6px; accent-color: #9fd0ff; }
-  #legend { display: flex; gap: 14px; font-size: 11px; opacity: .9; flex-wrap: wrap; }
-  @media (max-width: 560px) { .label { font-size: 9.5px; } .label.zone { font-size: 10px; } .label.zone small { display: none; } .label:not(.zone):not(.floor) { display: none !important; } }
-  #err { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; padding: 24px; text-align: center; }
+
+  #head {
+    position: absolute; left: 14px; top: 12px; right: 14px; z-index: 5;
+    display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+    pointer-events: none;
+  }
+  #head .brand {
+    pointer-events: none;
+    padding: 10px 14px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    backdrop-filter: saturate(160%) blur(18px);
+    -webkit-backdrop-filter: saturate(160%) blur(18px);
+  }
+  #head h1 { margin: 0; font-size: 15px; font-weight: 650; letter-spacing: -0.02em; color: var(--ink); }
+  #head p { margin: 2px 0 0; font-size: 11px; font-weight: 500; color: var(--ink-muted); }
+  #help {
+    pointer-events: auto;
+    width: 34px; height: 34px; border-radius: 50%;
+    border: 1px solid var(--border); background: rgba(255, 255, 255, 0.94);
+    color: var(--ink-muted); font: 600 14px/1 Inter, sans-serif;
+    box-shadow: var(--shadow); cursor: pointer;
+    display: grid; place-items: center;
+  }
+  #help:hover { color: var(--purple); border-color: rgba(69, 0, 132, 0.28); }
+  #help-tip {
+    display: none; position: absolute; top: 44px; right: 0; width: min(260px, calc(100vw - 28px));
+    padding: 12px 14px; border-radius: 12px; background: var(--surface); border: 1px solid var(--border);
+    box-shadow: var(--shadow); font-size: 12px; line-height: 1.45; color: var(--ink-muted); pointer-events: none;
+  }
+  #help-wrap { position: relative; pointer-events: auto; }
+  #help-wrap.open #help-tip { display: block; }
+
+  .label {
+    position: absolute; transform: translate(-50%, -50%);
+    font-size: 10.5px; font-weight: 500; white-space: nowrap; pointer-events: none;
+    padding: 3px 8px; border-radius: 999px;
+    background: rgba(255, 255, 255, 0.94); border: 1px solid var(--border);
+    color: var(--ink); box-shadow: 0 2px 10px rgba(32, 36, 55, 0.08);
+  }
+  .label.zone { font-weight: 600; font-size: 11px; }
+  .label.floor {
+    font-weight: 650; font-size: 11.5px; pointer-events: auto; cursor: pointer;
+    background: #fff; border-color: rgba(69, 0, 132, 0.2); color: var(--purple);
+  }
+  .label.floor:hover { background: var(--purple-soft); }
+  .label small { font-weight: 500; color: var(--ink-muted); margin-left: 5px; }
+  .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; vertical-align: 0.5px; box-shadow: 0 0 0 1px rgba(0,0,0,0.08); }
+
+  #panel {
+    position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%);
+    width: min(420px, calc(100% - 24px)); z-index: 5;
+    padding: 12px 14px 13px; border-radius: 18px;
+    background: rgba(255, 255, 255, 0.94);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    backdrop-filter: saturate(160%) blur(20px);
+    -webkit-backdrop-filter: saturate(160%) blur(20px);
+  }
+  #floors {
+    display: flex; gap: 3px; margin-bottom: 12px; padding: 3px;
+    border-radius: 12px; background: #EEF1F6;
+  }
+  #floors button {
+    flex: 1; padding: 8px 0; font: 600 12px/1 Inter, sans-serif; color: var(--ink-muted);
+    cursor: pointer; border: 0; border-radius: 9px; background: transparent;
+    transition: background .18s ease, color .18s ease, box-shadow .18s ease;
+  }
+  #floors button[aria-pressed="true"] {
+    background: #fff; color: var(--purple);
+    box-shadow: 0 1px 3px rgba(32, 36, 55, 0.1);
+  }
+  #row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  #row .meta { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  #row .meta span:first-child { font-size: 11px; font-weight: 600; color: var(--ink-dim); letter-spacing: 0.04em; text-transform: uppercase; }
+  #time { font-weight: 650; font-size: 16px; letter-spacing: -0.02em; color: var(--ink); }
+  #now {
+    border: 0; cursor: pointer; border-radius: 999px; padding: 7px 12px;
+    font: 600 12px/1 Inter, sans-serif; color: #fff; background: var(--purple);
+    transition: background .15s ease, transform .12s ease, color .15s ease;
+  }
+  #now:active { transform: scale(0.97); }
+  #now.is-now { background: var(--purple-soft); color: var(--purple); }
+  #panel input[type=range] {
+    -webkit-appearance: none; appearance: none; width: 100%; height: 5px; margin: 12px 0 10px;
+    border-radius: 999px; outline: none; cursor: pointer;
+    background: linear-gradient(90deg, var(--traffic-low), var(--traffic-mod), var(--traffic-high));
+  }
+  #panel input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%;
+    background: #fff; border: 2.5px solid var(--purple);
+    box-shadow: 0 2px 8px rgba(69, 0, 132, 0.22); cursor: grab;
+  }
+  #panel input[type=range]::-moz-range-thumb {
+    width: 20px; height: 20px; border-radius: 50%;
+    background: #fff; border: 2.5px solid var(--purple);
+    box-shadow: 0 2px 8px rgba(69, 0, 132, 0.22); cursor: grab;
+  }
+  #legend {
+    display: flex; gap: 12px; font-size: 11px; font-weight: 550; color: var(--ink-muted); flex-wrap: wrap;
+  }
+  #tools {
+    position: absolute; right: 14px; bottom: 150px; z-index: 5; display: flex; flex-direction: column; gap: 8px;
+  }
+  #tools button {
+    width: 40px; height: 40px; border-radius: 12px; border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.94); color: var(--ink-muted); cursor: pointer;
+    box-shadow: var(--shadow); display: grid; place-items: center;
+  }
+  #tools button:hover { color: var(--purple); border-color: rgba(69, 0, 132, 0.25); }
+  #tools svg { width: 18px; height: 18px; }
+
+  @media (max-width: 560px) {
+    #head { left: 10px; top: 10px; right: 10px; }
+    #panel { bottom: 10px; width: calc(100% - 20px); padding: 11px 12px 12px; border-radius: 16px; }
+    #floors button { font-size: 11px; padding: 7px 0; }
+    .label { font-size: 9.5px; }
+    .label.zone { font-size: 10px; }
+    .label.zone small { display: none; }
+    .label:not(.zone):not(.floor) { display: none !important; }
+    #tools { bottom: 168px; right: 10px; }
+  }
+  #err {
+    position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
+    padding: 24px; text-align: center; color: var(--ink-muted); background: var(--bg); z-index: 20;
+  }
+  #panel, #head .brand, #tools button, #help {
+    animation: rise 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  #tools button { animation-delay: 0.08s; }
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  #panel { transform: translateX(-50%); animation-name: risePanel; }
+  @keyframes risePanel {
+    from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+    to { opacity: 1; transform: translateX(-50%) translateY(0); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #panel, #head .brand, #tools button, #help { animation: none; }
+  }
 </style>
 </head>
 <body>
 <div id="head">
-  <h1 id="title">UREC · All floors</h1>
-  <p>Tap a floor (or use the buttons) to zoom in on it. Drag to rotate, pinch or scroll to zoom. Crowd levels are simulated.</p>
+  <div class="brand">
+    <h1 id="title">UREC</h1>
+    <p id="subtitle">3D Crowd Map · Simulated</p>
+  </div>
+  <div id="help-wrap">
+    <button id="help" type="button" aria-label="How to use" aria-expanded="false">?</button>
+    <div id="help-tip">Drag to rotate · pinch or scroll to zoom · tap a floor or use the controls below. Crowd levels are simulated.</div>
+  </div>
 </div>
 <div id="labels"></div>
+<div id="tools">
+  <button id="reset" type="button" aria-label="Reset view" title="Reset view">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
+  </button>
+</div>
 <div id="panel">
   <div id="floors" role="group" aria-label="Floor">
     <button data-f="0" aria-pressed="true">All</button>
-    <button data-f="1" aria-pressed="false">Level 1</button>
-    <button data-f="2" aria-pressed="false">Level 2</button>
-    <button data-f="3" aria-pressed="false">Level 3</button>
-    <button data-f="4" aria-pressed="false">Level 4</button>
+    <button data-f="1" aria-pressed="false">L1</button>
+    <button data-f="2" aria-pressed="false">L2</button>
+    <button data-f="3" aria-pressed="false">L3</button>
+    <button data-f="4" aria-pressed="false">L4</button>
   </div>
-  <div id="row"><span>Time of day</span><span id="time"></span></div>
+  <div id="row">
+    <div class="meta"><span>Time</span><span id="time"></span></div>
+    <button id="now" type="button">Now</button>
+  </div>
   <input id="slider" type="range" min="6" max="23" step="0.25" value="17.5" aria-label="Time of day">
   <div id="legend">
-    <span><i class="dot" style="background:#34d399"></i>Clear</span>
-    <span><i class="dot" style="background:#facc15"></i>Slightly busy</span>
-    <span><i class="dot" style="background:#ef4444"></i>Busy</span>
+    <span><i class="dot" style="background:#16A66A"></i>Low</span>
+    <span><i class="dot" style="background:#F4B740"></i>Moderate</span>
+    <span><i class="dot" style="background:#E34B55"></i>High</span>
   </div>
 </div>
 <div id="err">The 3D library could not load. Check your connection and reload.</div>
@@ -1119,7 +1284,7 @@
   // SCALE (metres per common-frame pixel) and the heights are estimates.
   // =====================================================================
   var SCALE = 0.19, CX = 430, CY = 335;
-  var FLOOR_H = 5, WALL_H = 4.7, RAIL_H = 1.1;
+  var FLOOR_H = 9.4, WALL_H = 4.5, RAIL_H = 1.05;
   function T1(p) { return [428 + (p[0] - 425) * 0.89, 630 + (p[1] - 385) * 0.89]; }
   function T4(p) { return [252 + (p[0] - 277) * 1.05, 45 + (p[1] - 68) * 1.05]; }
   function ID(p) { return p; }
@@ -1212,22 +1377,43 @@
   }
   function centroid(px) { var x = 0, y = 0; px.forEach(function (p) { x += p[0]; y += p[1]; }); return [x / px.length, y / px.length]; }
 
-  var renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+  var renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setClearColor(0xE9EDF4, 1);
   document.body.insertBefore(renderer.domElement, document.body.firstChild);
   var scene = new THREE.Scene();
-  var camera = new THREE.PerspectiveCamera(32, 1, 1, 3000);
+  scene.background = new THREE.Color(0xE9EDF4);
+  scene.fog = new THREE.Fog(0xE9EDF4, 560, 1500);
+  var hemi = new THREE.HemisphereLight(0xffffff, 0xc5cedd, 0.85);
+  scene.add(hemi);
+  var key = new THREE.DirectionalLight(0xffffff, 0.7);
+  key.position.set(90, 180, 70);
+  scene.add(key);
+  var fill = new THREE.DirectionalLight(0xb8c4d8, 0.32);
+  fill.position.set(-70, 50, -50);
+  scene.add(fill);
+  var camera = new THREE.PerspectiveCamera(26, 1, 1, 3000);
   var controls = new THREE.OrbitControls(camera, renderer.domElement);
-  controls.enableDamping = true; controls.maxPolarAngle = Math.PI * 0.49; controls.minDistance = 25; controls.maxDistance = 1200;
+  controls.enableDamping = true; controls.dampingFactor = 0.07;
+  controls.maxPolarAngle = Math.PI * 0.465; controls.minPolarAngle = 0.18;
+  controls.minDistance = 24; controls.maxDistance = 900;
+  controls.enablePan = false;
 
   function mat(F, kind) {
     var m, o;
-    if (kind === 'glass')      { o = 0.09;  m = new THREE.MeshBasicMaterial({ color: 0xcfe8ff, side: THREE.DoubleSide }); }
-    else if (kind === 'faint') { o = 0.035; m = new THREE.MeshBasicMaterial({ color: 0xcfe8ff, side: THREE.DoubleSide }); }
-    else if (kind === 'zone')  { o = 0.55;  m = new THREE.MeshBasicMaterial({ color: 0x34d399, side: THREE.DoubleSide }); }
-    else if (kind === 'dot')   { o = 1;     m = new THREE.MeshBasicMaterial({ color: 0xffffff }); }
-    else { o = kind === 'line' ? 0.8 : kind === 'soft' ? 0.3 : 0.13; m = new THREE.LineBasicMaterial({ color: 0xffffff }); }
-    m.transparent = true; m.opacity = o; m.depthWrite = false; m.userData.base = o; F.mats.push(m); return m;
+    if (kind === 'glass')      { o = 0.28; m = new THREE.MeshBasicMaterial({ color: 0xCBD5E1, side: THREE.DoubleSide }); }
+    else if (kind === 'floor') { o = 1;    m = new THREE.MeshBasicMaterial({ color: 0xF1F4F8, side: THREE.DoubleSide }); }
+    else if (kind === 'faint') { o = 0.14; m = new THREE.MeshBasicMaterial({ color: 0x94A3B8, side: THREE.DoubleSide }); }
+    else if (kind === 'zone')  { o = 0.72; m = new THREE.MeshBasicMaterial({ color: 0x16A66A, side: THREE.DoubleSide }); }
+    else if (kind === 'track') { o = 1;    m = new THREE.MeshBasicMaterial({ color: 0xE2E8F0, side: THREE.DoubleSide }); }
+    else if (kind === 'shadow'){ o = 0.18; m = new THREE.MeshBasicMaterial({ color: 0x334155, side: THREE.DoubleSide }); }
+    else if (kind === 'dot')   { o = 0.92; m = new THREE.MeshBasicMaterial({ color: 0x475569 }); }
+    else if (kind === 'line')  { o = 0.72; m = new THREE.LineBasicMaterial({ color: 0x64748B }); }
+    else if (kind === 'soft')  { o = 0.42; m = new THREE.LineBasicMaterial({ color: 0x94A3B8 }); }
+    else                       { o = 0.22; m = new THREE.LineBasicMaterial({ color: 0xCBD5E1 }); }
+    m.transparent = true; m.opacity = o;
+    m.depthWrite = kind === 'floor' || kind === 'track' || kind === 'zone';
+    m.userData.base = o; F.mats.push(m); return m;
   }
   function shapeFrom(px) {
     var s = new THREE.Shape();
@@ -1288,8 +1474,15 @@
     var T = function (px) { return px.map(D.T); };
     var k = D.T === T4 ? 1.05 : 1;
 
+    var floorMat = mat(F, 'floor');
+    // Slight cool shift per level so stacked floors separate against the canvas
+    floorMat.color.offsetHSL(0, 0, -0.018 * (F.n - 1));
+    var shadowMat = mat(F, 'shadow');
     (D.slabs || []).forEach(function (s) {
-      var m = slab(F, T(s.pts), 0, 0.3, s.faint ? faint : glass, s.faint ? dim : line, s.hole && T(s.hole));
+      if (!s.faint) {
+        slab(F, T(s.pts), -0.1, 0.08, shadowMat, null, s.hole && T(s.hole));
+      }
+      var m = slab(F, T(s.pts), 0, 0.48, s.faint ? faint : floorMat, s.faint ? dim : line, s.hole && T(s.hole));
       m.userData.floor = F.n; pickables.push(m);
     });
     (D.walls || []).forEach(function (w) { wall(F, T(w.pts), true, 0, w.h, w.faint ? faint : glass, w.faint ? dim : soft, w.post || 0); });
@@ -1301,7 +1494,11 @@
     (D.zones || []).forEach(function (z) {
       var px = T(z.pts), c = W(centroid(px)); c.y = F.y + (z.room ? WALL_H + 0.8 : 1.6);
       if (z.live) {
-        var zm = mat(F, 'zone'), mesh = slab(F, px, 0.12, 0.12, zm, soft);
+        var base = mat(F, 'floor');
+        base.color.offsetHSL(0, 0, -0.016 * (F.n - 1));
+        slab(F, px, 0.1, 0.12, base, soft);
+        var zm = mat(F, 'zone');
+        var mesh = slab(F, px, 0.22, 0.1, zm, line);
         if (z.room) wall(F, px, true, 0, WALL_H, glass, soft, 0);
         addZone(F, z.id, z.name, mesh, zm, c);
       } else {
@@ -1312,16 +1509,19 @@
 
     (D.tracks || []).forEach(function (tr) {
       var outer = rounded(T(tr.outer), tr.ro * k), inner = rounded(T(tr.inner), tr.ri * k);
-      var zm = mat(F, 'zone'), mesh = slab(F, outer, 0.02, 0.32, zm, line, inner);
-      [0.25, 0.5, 0.75].forEach(function (f) { outline(F, outer.map(function (o, i) { var q = inner[i]; return [o[0] + (q[0] - o[0]) * f, o[1] + (q[1] - o[1]) * f]; }), 0.05, soft); });
-      wall(F, inner, true, 0, RAIL_H, glass, line, 3);
+      var trackBase = mat(F, 'track');
+      slab(F, outer, 0.02, 0.3, trackBase, soft, inner);
+      var zm = mat(F, 'zone'); zm.opacity = 0.62; zm.userData.base = 0.62;
+      var mesh = slab(F, outer, 0.08, 0.08, zm, null, inner);
+      [0.33, 0.66].forEach(function (f) { outline(F, outer.map(function (o, i) { var q = inner[i]; return [o[0] + (q[0] - o[0]) * f, o[1] + (q[1] - o[1]) * f]; }), 0.09, soft); });
+      wall(F, inner, true, 0, RAIL_H, glass, soft, 3);
       if (tr.wall) wall(F, outer, true, 0, WALL_H, glass, soft, 6);
       var c = W(outer[Math.floor(outer.length * 0.62)]); c.y = F.y + 2;
       var z = addZone(F, tr.id, tr.name, mesh, zm, c);
       // people moving round the track
       var path = outer.map(function (o, i) { return W([(o[0] + inner[i][0]) / 2, (o[1] + inner[i][1]) / 2]); }), cum = [0];
       for (var i = 0; i < path.length; i++) cum.push(cum[i] + path[i].distanceTo(path[(i + 1) % path.length]));
-      var dm = mat(F, 'dot'), dg = new THREE.SphereGeometry(0.42, 8, 6), list = [];
+      var dm = mat(F, 'dot'), dg = new THREE.SphereGeometry(0.32, 8, 6), list = [];
       for (var r = 0; r < tr.max; r++) { var s = new THREE.Mesh(dg, dm); F.group.add(s); list.push({ mesh: s, d: Math.random() * cum[cum.length - 1], v: tr.speed * (0.7 + Math.random() * 0.6), lane: (Math.random() - 0.5) * 2.4 }); }
       runners.push({ zone: z, path: path, cum: cum, list: list, active: 0 });
     });
@@ -1346,43 +1546,151 @@
   // =====================================================================
   // Crowd colours
   // =====================================================================
-  var GREEN = new THREE.Color(0x34d399), YELLOW = new THREE.Color(0xfacc15), RED = new THREE.Color(0xef4444);
+  var GREEN = new THREE.Color(0x16A66A), YELLOW = new THREE.Color(0xF4B740), RED = new THREE.Color(0xE34B55);
   function colourFor(o) { return o < 0.5 ? GREEN.clone().lerp(YELLOW, o / 0.5) : YELLOW.clone().lerp(RED, (o - 0.5) / 0.5); }
-  function levelFor(o) { return o < 0.35 ? 'Clear' : o < 0.7 ? 'Slightly busy' : 'Busy'; }
+  function levelFor(o) { return o < 0.4 ? 'Low' : o < 0.75 ? 'Moderate' : 'High'; }
   var slider = document.getElementById('slider'), timeEl = document.getElementById('time');
   function applyTime() {
     var t = parseFloat(slider.value), h = Math.floor(t), m = Math.round((t - h) * 60);
     timeEl.textContent = ((h + 11) % 12 + 1) + ':' + (m < 10 ? '0' : '') + m + (h < 12 ? ' AM' : ' PM');
     zones.forEach(function (z) {
-      var o = Math.max(0, Math.min(1, z.curve(t))), c = colourFor(o); z.occ = o; z.mat.color.copy(c);
+      var o = Math.max(0, Math.min(1, z.curve(t))), c = colourFor(o);
+      z.occ = o;
+      if (!z.targetColor) z.targetColor = c.clone(); else z.targetColor.copy(c);
+      if (!z.displayColor) { z.displayColor = c.clone(); z.mat.color.copy(c); }
       z.label.el.innerHTML = '<i class="dot" style="background:#' + c.getHexString() + '"></i>' + z.name + '<small>' + levelFor(o) + ' · ' + Math.round(o * 100) + '%</small>';
     });
     runners.forEach(function (r) { r.active = Math.round(r.zone.occ * r.list.length); });
   }
   slider.addEventListener('input', applyTime); applyTime();
+  function syncNowBtn() {
+    var nowH = new Date().getHours() + new Date().getMinutes() / 60;
+    var clamped = Math.max(6, Math.min(23, nowH));
+    var isNow = Math.abs(parseFloat(slider.value) - clamped) < 0.2;
+    var btn = document.getElementById('now');
+    btn.classList.toggle('is-now', isNow);
+  }
+  document.getElementById('now').addEventListener('click', function () {
+    var nowH = new Date().getHours() + new Date().getMinutes() / 60;
+    slider.value = String(Math.max(6, Math.min(23, Math.round(nowH * 4) / 4)));
+    applyTime(); syncNowBtn();
+  });
+  slider.addEventListener('input', syncNowBtn); syncNowBtn();
+  document.getElementById('help').addEventListener('click', function () {
+    var wrap = document.getElementById('help-wrap');
+    var open = wrap.classList.toggle('open');
+    this.setAttribute('aria-expanded', String(open));
+  });
+  document.getElementById('reset').addEventListener('click', function () { focus(focused); });
 
   // =====================================================================
   // Floor focus + camera
   // =====================================================================
-  var focused = 0, anim = null, OVER_DIR = new THREE.Vector3(-0.45, 0.62, 0.78).normalize(), FOCUS_DIR = new THREE.Vector3(-0.22, 0.8, 0.56).normalize();
-  function fit() { return Math.max(1, 0.92 / (window.innerWidth / window.innerHeight)); }
+  var focused = 0, anim = null, highlightedZoneId = null;
+  var OVER_DIR = new THREE.Vector3(-0.55, 0.52, 0.65).normalize(), FOCUS_DIR = new THREE.Vector3(-0.3, 0.68, 0.66).normalize();
+  function fit() { return Math.max(1, 0.88 / (window.innerWidth / window.innerHeight)); }
   function viewFor(n) {
-    if (!n) return { tgt: new THREE.Vector3(0, 8, 0), pos: new THREE.Vector3(0, 8, 0).add(OVER_DIR.clone().multiplyScalar(330 * fit())) };
-    var F = built[n], d = Math.max(F.size.x, F.size.z * 1.3) * 1.75 * fit();
-    var tg = F.centre.clone(); tg.z += F.size.z * 0.16;
-    return { tgt: tg, pos: tg.clone().add(FOCUS_DIR.clone().multiplyScalar(d * 1.08)) };
+    if (!n) return { tgt: new THREE.Vector3(2, 16, 2), pos: new THREE.Vector3(2, 16, 2).add(OVER_DIR.clone().multiplyScalar(300 * fit())) };
+    var F = built[n], d = Math.max(F.size.x, F.size.z * 1.2) * 1.45 * fit();
+    var tg = F.centre.clone(); tg.y = F.y + 1.4; tg.z += F.size.z * 0.08;
+    return { tgt: tg, pos: tg.clone().add(FOCUS_DIR.clone().multiplyScalar(d * 1.0)) };
+  }
+  function viewForZone(z) {
+    var F = built[z.floor];
+    var tg = z.label.pos.clone();
+    tg.y = F.y + 1.2;
+    var d = Math.max(F.size.x, F.size.z) * 0.72 * fit();
+    return { tgt: tg, pos: tg.clone().add(FOCUS_DIR.clone().multiplyScalar(d)) };
+  }
+  function applyHighlight() {
+    zones.forEach(function (z) {
+      if (!z.mat || !z.mat.userData) return;
+      var base = z.mat.userData.base != null ? z.mat.userData.base : 0.72;
+      if (!highlightedZoneId) {
+        z.mat.opacity = base;
+        if (z.label && z.label.el) z.label.el.style.outline = '';
+        return;
+      }
+      if (z.id === highlightedZoneId) {
+        z.mat.opacity = Math.min(1, base + 0.22);
+        if (z.label && z.label.el) {
+          z.label.el.style.outline = '2px solid #450084';
+          z.label.el.style.outlineOffset = '2px';
+        }
+      } else {
+        z.mat.opacity = Math.max(0.12, base * 0.35);
+        if (z.label && z.label.el) z.label.el.style.outline = '';
+      }
+    });
+  }
+  function focusZone(zoneId, floorHint) {
+    var z = null;
+    for (var i = 0; i < zones.length; i++) {
+      if (zones[i].id === zoneId) { z = zones[i]; break; }
+    }
+    if (!z) {
+      if (floorHint) focus(floorHint);
+      return;
+    }
+    highlightedZoneId = z.id;
+    focused = z.floor;
+    Object.keys(built).forEach(function (key) {
+      var F = built[key], f = F.n === focused ? 1 : F.n < focused ? 0.15 : 0;
+      F.group.visible = f > 0;
+      F.mats.forEach(function (m) {
+        var lower = 1;
+        m.opacity = Math.min(1, m.userData.base * f * lower);
+      });
+    });
+    applyHighlight();
+    document.getElementById('title').textContent = z.name;
+    document.getElementById('subtitle').textContent = 'Level ' + z.floor + ' · Simulated';
+    Array.prototype.forEach.call(document.querySelectorAll('#floors button'), function (b) {
+      b.setAttribute('aria-pressed', String(+b.dataset.f === focused));
+    });
+    var v = viewForZone(z);
+    anim = { t: 0, p0: camera.position.clone(), p1: v.pos, g0: controls.target.clone(), g1: v.tgt };
+  }
+  function clearHighlight() {
+    highlightedZoneId = null;
+    applyHighlight();
   }
   function focus(n) {
     focused = n;
+    if (!n) highlightedZoneId = null;
     Object.keys(built).forEach(function (key) {
       var F = built[key], f = !n || F.n === n ? 1 : F.n < n ? 0.15 : 0;
-      F.group.visible = f > 0; F.mats.forEach(function (m) { m.opacity = m.userData.base * f * (!n && m.userData.base === 0.55 ? 0.7 : 1); });
+      F.group.visible = f > 0; F.mats.forEach(function (m) {
+        var isZone = m.userData.base >= 0.55;
+        var boost = (!n && isZone) ? 1 : 1;
+        var lower = (!n && F.n < 4) ? (0.7 + F.n * 0.08) : 1;
+        m.opacity = Math.min(1, m.userData.base * f * boost * lower);
+      });
     });
-    document.getElementById('title').textContent = n ? 'UREC · Level ' + n : 'UREC · All floors';
+    applyHighlight();
+    document.getElementById('title').textContent = 'UREC';
+    document.getElementById('subtitle').textContent = (n ? 'Level ' + n : 'All floors') + ' · Simulated';
     Array.prototype.forEach.call(document.querySelectorAll('#floors button'), function (b) { b.setAttribute('aria-pressed', String(+b.dataset.f === n)); });
     var v = viewFor(n); anim = { t: 0, p0: camera.position.clone(), p1: v.pos, g0: controls.target.clone(), g1: v.tgt };
   }
   Array.prototype.forEach.call(document.querySelectorAll('#floors button'), function (b) { b.addEventListener('click', function () { focus(+b.dataset.f); }); });
+
+  // Parent React app can focus a zone for Explore → Preview on Map
+  window.addEventListener('message', function (event) {
+    if (event.origin !== window.location.origin) return;
+    var data = event.data;
+    if (!data || typeof data !== 'object') return;
+    if (data.type === 'urec:focus-zone' && data.zoneId) {
+      focusZone(String(data.zoneId), data.floor ? +data.floor : 0);
+    } else if (data.type === 'urec:clear-highlight') {
+      clearHighlight();
+    }
+  });
+  try {
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({ type: 'urec:ready' }, window.location.origin);
+    }
+  } catch (err) { /* ignore */ }
 
   // tap (not drag) on the model picks a floor
   var down = null, ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
@@ -1399,10 +1707,17 @@
   (function () { var v = viewFor(0); camera.position.copy(v.pos); controls.target.copy(v.tgt); })();
 
   var clock = new THREE.Clock(), tmp = new THREE.Vector3();
+  var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   renderer.setAnimationLoop(function () {
     var dt = Math.min(clock.getDelta(), 0.1);
+    zones.forEach(function (z) {
+      if (!z.targetColor || !z.displayColor) return;
+      z.displayColor.lerp(z.targetColor, Math.min(1, dt * 5));
+      z.mat.color.copy(z.displayColor);
+    });
     if (anim) {
-      anim.t = Math.min(1, anim.t + dt / 0.9); var e = anim.t < 0.5 ? 2 * anim.t * anim.t : 1 - Math.pow(-2 * anim.t + 2, 2) / 2;
+      var dur = reduceMotion ? 0.01 : 0.95;
+      anim.t = Math.min(1, anim.t + dt / dur); var e = reduceMotion ? 1 : (anim.t < 0.5 ? 2 * anim.t * anim.t : 1 - Math.pow(-2 * anim.t + 2, 2) / 2);
       camera.position.lerpVectors(anim.p0, anim.p1, e); controls.target.lerpVectors(anim.g0, anim.g1, e); if (anim.t === 1) anim = null;
     }
     runners.forEach(function (r) {

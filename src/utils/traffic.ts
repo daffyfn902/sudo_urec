@@ -1,5 +1,12 @@
 import type { TrafficStatus } from '../data/types'
 
+/** Shared traffic palette — keep in sync with public/urec-3d.html legend */
+export const TRAFFIC_COLORS = {
+  low: '#16A66A',
+  moderate: '#F4B740',
+  high: '#E34B55',
+} as const
+
 export function getTrafficStatus(occupancyPercent: number): TrafficStatus {
   if (occupancyPercent >= 75) return 'high'
   if (occupancyPercent >= 40) return 'moderate'
@@ -18,24 +25,17 @@ export function trafficLabel(status: TrafficStatus): string {
 }
 
 export function trafficColor(status: TrafficStatus): string {
-  switch (status) {
-    case 'low':
-      return '#34c759'
-    case 'moderate':
-      return '#ffcc00'
-    case 'high':
-      return '#ff3b30'
-  }
+  return TRAFFIC_COLORS[status]
 }
 
 export function trafficBgClass(status: TrafficStatus): string {
   switch (status) {
     case 'low':
-      return 'bg-traffic-low/15 text-emerald-800'
+      return 'bg-traffic-low/12 text-emerald-800'
     case 'moderate':
-      return 'bg-traffic-moderate/20 text-amber-800'
+      return 'bg-traffic-moderate/18 text-amber-800'
     case 'high':
-      return 'bg-traffic-high/15 text-red-800'
+      return 'bg-traffic-high/12 text-red-800'
   }
 }
 

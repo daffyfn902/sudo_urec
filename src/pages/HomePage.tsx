@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { ArrowRight, Flame, Map } from 'lucide-react'
+import { ArrowUpRight, Compass } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { OccupancyCard } from '../components/ui/OccupancyCard'
 import { ForecastChart } from '../components/ui/ForecastChart'
@@ -26,24 +26,20 @@ export function HomePage() {
   }, [])
 
   return (
-    <div className="safe-top px-4 pb-4 pt-6 sm:px-6">
-      <header className="mb-6">
-        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-jmu-purple">
-          James Madison University
-        </p>
-        <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-ink sm:text-4xl">
-          UREC Crowd Map
-        </h1>
-        <p className="mt-2 max-w-md text-sm text-ink-muted">
-          See how crowded UREC feels right now — and find a quieter time to train.
+    <div className="page-shell safe-top">
+      <header className="mb-7">
+        <p className="section-label text-jmu-purple">JMU UREC</p>
+        <h1 className="page-title mt-1.5">Crowd Map</h1>
+        <p className="page-subtitle">
+          See how crowded the gym feels — and find a quieter time to train.
         </p>
       </header>
 
       {loading || !overview ? (
         <div className="space-y-4">
-          <div className="card-surface h-48 animate-pulse bg-jmu-lavender/50" />
-          <div className="card-surface h-36 animate-pulse bg-jmu-lavender/40" />
-          <div className="card-surface h-44 animate-pulse bg-jmu-lavender/30" />
+          <div className="card-surface h-44 animate-pulse bg-jmu-lavender/40" />
+          <div className="card-surface h-32 animate-pulse bg-jmu-lavender/30" />
+          <div className="card-surface h-40 animate-pulse bg-jmu-lavender/25" />
         </div>
       ) : (
         <div className="space-y-4">
@@ -54,25 +50,60 @@ export function HomePage() {
             hourLabel={formatHour(overview.currentHour)}
           />
 
-          <section className="card-surface p-4 sm:p-5">
-            <div className="mb-3 flex items-center gap-2">
-              <Flame className="h-4 w-4 text-jmu-purple" />
-              <h2 className="text-sm font-semibold text-ink">Busiest zones</h2>
+          <Link
+            to="/map"
+            className="pressable group flex items-center justify-between rounded-[18px] bg-jmu-purple px-5 py-4 text-white shadow-[var(--shadow-float)] transition-colors hover:bg-jmu-purple-dark"
+          >
+            <div>
+              <p className="text-[15px] font-semibold tracking-[-0.02em]">Explore 3D UREC</p>
+              <p className="mt-0.5 text-[12px] text-white/65">Interactive map · simulated</p>
             </div>
-            <ul className="space-y-2.5">
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/15 transition group-hover:bg-white/20">
+              <ArrowUpRight className="h-4 w-4" strokeWidth={2.25} />
+            </span>
+          </Link>
+
+          <Link
+            to="/explore"
+            className="pressable group card-surface flex items-center justify-between px-5 py-4 transition-colors hover:border-border-strong hover:bg-jmu-lavender/30"
+          >
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-[12px] bg-jmu-lavender text-jmu-purple">
+                <Compass className="h-4 w-4" strokeWidth={2.25} aria-hidden />
+              </span>
+              <div>
+                <p className="text-[15px] font-semibold tracking-[-0.02em] text-ink">
+                  Explore Something New
+                </p>
+                <p className="mt-0.5 text-[12px] text-ink-muted">
+                  Gentle challenges to try unfamiliar zones
+                </p>
+              </div>
+            </div>
+            <ArrowUpRight className="h-4 w-4 shrink-0 text-ink-subtle transition group-hover:text-jmu-purple" />
+          </Link>
+
+          <section className="card-surface p-4 sm:p-5">
+            <div className="mb-3 flex items-baseline justify-between">
+              <h2 className="text-[15px] font-semibold tracking-[-0.02em] text-ink">
+                Busiest zones
+              </h2>
+              <span className="text-[11px] text-ink-subtle">Simulated</span>
+            </div>
+            <ul className="divide-y divide-border">
               {overview.busiestZones.map((zone, index) => (
                 <li
                   key={zone.zoneId}
-                  className="flex items-center justify-between gap-3 rounded-2xl bg-jmu-lavender/50 px-3.5 py-3"
+                  className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
                 >
                   <div className="flex items-center gap-3">
-                    <span className="flex h-7 w-7 items-center justify-center rounded-full bg-surface text-xs font-bold text-jmu-purple">
+                    <span className="w-4 text-[13px] font-semibold tabular-nums text-ink-subtle">
                       {index + 1}
                     </span>
-                    <span className="font-medium text-ink">{zone.label}</span>
+                    <span className="text-[14px] font-medium text-ink">{zone.label}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold tabular-nums text-ink">
+                    <span className="text-[13px] font-semibold tabular-nums text-ink">
                       {zone.occupancyPercent}%
                     </span>
                     <TrafficBadge status={zone.status} size="sm" />
@@ -82,23 +113,11 @@ export function HomePage() {
             </ul>
           </section>
 
-          <ForecastChart data={overview.hourlyForecast} height={150} highlightHour={overview.currentHour} />
-
-          <Link
-            to="/map"
-            className="group flex items-center justify-between rounded-2xl bg-jmu-purple px-5 py-4 text-white shadow-[var(--shadow-float)] transition hover:bg-jmu-purple-dark active:scale-[0.99]"
-          >
-            <div className="flex items-center gap-3">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/15">
-                <Map className="h-5 w-5" />
-              </span>
-              <div>
-                <p className="font-semibold">Explore 3D UREC</p>
-                <p className="text-xs text-white/70">Interactive map · simulated traffic</p>
-              </div>
-            </div>
-            <ArrowRight className="h-5 w-5 transition group-hover:translate-x-0.5" />
-          </Link>
+          <ForecastChart
+            data={overview.hourlyForecast}
+            height={148}
+            highlightHour={overview.currentHour}
+          />
         </div>
       )}
     </div>

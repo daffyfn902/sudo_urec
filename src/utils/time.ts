@@ -52,11 +52,22 @@ export function shiftISODate(iso: string, days: number): string {
 }
 
 /**
- * The map's time slider position for "now": the current time rounded to 15 minutes and kept inside opening hours.
+ * The map's time slider position for "now": the current time to the minute, kept inside opening hours.
  * Matches nowSliderValue() in public/urec-3d.html.
  */
 export function sliderNow(): number {
   const d = new Date()
   const nowH = d.getHours() + d.getMinutes() / 60
-  return Math.max(OPEN_HOUR, Math.min(CLOSE_HOUR, Math.round(nowH * 4) / 4))
+  return Math.max(OPEN_HOUR, Math.min(CLOSE_HOUR, Math.round(nowH * 60) / 60))
+}
+
+/** The actual time of day, e.g. "3:26 PM". */
+export function formatClock(date: Date = new Date()): string {
+  return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+}
+
+/** Is the UREC open at this moment? */
+export function isOpenNow(date: Date = new Date()): boolean {
+  const h = date.getHours()
+  return h >= OPEN_HOUR && h < CLOSE_HOUR
 }

@@ -3,11 +3,14 @@ import { Building2 } from 'lucide-react'
 import { NAV_ITEMS } from './navItems'
 import { useOverview } from '../../hooks/useOverview'
 import { busyColor, trafficLabel } from '../../utils/traffic'
-import { formatHour } from '../../utils/time'
+import { formatClock, isOpenNow, OPEN_HOUR, formatHour } from '../../utils/time'
+import { useNow } from '../../hooks/useNow'
 
 /** Desktop navigation: always visible, shows how busy the gym is right now. */
 export function SideNav() {
   const { overview } = useOverview()
+  const now = useNow()
+  const open = isOpenNow(now)
 
   return (
     <aside
@@ -60,7 +63,14 @@ export function SideNav() {
             to="/map"
             className="block rounded-[16px] border border-border bg-jmu-mist p-3.5 transition-colors hover:border-border-strong"
           >
-            <p className="section-label">Right now · {formatHour(overview.currentHour)}</p>
+            <p className="section-label">Right now · {formatClock(now)}</p>
+            {!open ? (
+              <p className="mt-1.5 text-[14px] font-semibold text-ink">
+                UREC is closed
+                <span className="mt-0.5 block text-[12px] font-normal text-ink-muted">Opens {formatHour(OPEN_HOUR)}</span>
+              </p>
+            ) : (
+              <>
             <div className="mt-1.5 flex items-center justify-between">
               <span className="flex items-center gap-2 text-[14px] font-semibold text-ink">
                 <span
@@ -82,6 +92,8 @@ export function SideNav() {
                 }}
               />
             </div>
+              </>
+            )}
           </Link>
         )}
         <p className="px-1 text-[11px] leading-snug text-ink-subtle">

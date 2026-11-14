@@ -228,7 +228,7 @@
     <div class="meta"><span>Time</span><span id="time"></span></div>
     <button id="now" type="button">Now</button>
   </div>
-  <input id="slider" type="range" min="6" max="23" step="0.25" value="17.5" aria-label="Time of day">
+  <input id="slider" type="range" min="6" max="23" step="0.0166667" value="17.5" aria-label="Time of day">
   <div id="legend">
     <span><i class="dot" style="background:#16A66A"></i>Low</span>
     <span><i class="dot" style="background:#F4B740"></i>Moderate</span>
@@ -2308,7 +2308,7 @@
   // the slider thumb, and says Live when the slider sits on the current time.
   function updateOverall(t) {
     var el = document.getElementById('overall'); if (!el) return;
-    var o = overallAt(t), isNow = Math.abs(t - parseFloat(nowSliderValue())) < 0.01;
+    var o = overallAt(t), isNow = Math.abs(t - parseFloat(nowSliderValue())) < 0.008;
     el.innerHTML = '<i class="pip" style="background:' + busyColour(o) + '"></i>' +
       (o < 0 ? 'Closed' : Math.round(o * 100) + '% · ' + levelFor(o)) +
       '<span class="tag' + (isNow ? ' live' : '') + '">' + (isNow ? 'Live' : 'Forecast') + '</span>';
@@ -2334,18 +2334,16 @@
       c.active = Math.round(o * c.list.length);
     });
   }
-  // Open at the current time (rounded to the slider's 15-minute steps, within opening hours)
+  // The current time to the minute, kept inside opening hours
   function nowSliderValue() {
-    var nowH = new Date().getHours() + new Date().getMinutes() / 60;
-    return String(Math.max(6, Math.min(23, Math.round(nowH * 4) / 4)));
+    var d = new Date(), nowH = d.getHours() + d.getMinutes() / 60;
+    return String(Math.max(6, Math.min(23, Math.round(nowH * 60) / 60)));
   }
   slider.value = nowSliderValue();
   slider.addEventListener('input', applyTime); applyTime(); updateTrack();
   slider.title = 'The bar is coloured by how busy the whole gym is at each time';
   function syncNowBtn() {
-    var nowH = new Date().getHours() + new Date().getMinutes() / 60;
-    var clamped = Math.max(6, Math.min(23, nowH));
-    var isNow = Math.abs(parseFloat(slider.value) - clamped) < 0.2;
+    var isNow = Math.abs(parseFloat(slider.value) - parseFloat(nowSliderValue())) < 0.008;
     var btn = document.getElementById('now');
     btn.classList.toggle('is-now', isNow);
   }
@@ -2354,6 +2352,13 @@
     applyTime(); syncNowBtn();
   });
   slider.addEventListener('input', syncNowBtn); syncNowBtn();
+  // While the bar sits on "now" it keeps following the clock, so the time and Live tag never go stale
+  var lastNow = parseFloat(nowSliderValue());
+  setInterval(function () {
+    var n = parseFloat(nowSliderValue());
+    if (Math.abs(parseFloat(slider.value) - lastNow) < 0.008 && n !== lastNow) { slider.value = String(n); applyTime(); }
+    lastNow = n; syncNowBtn(); updateOverall(parseFloat(slider.value));
+  }, 30000);
   document.getElementById('help').addEventListener('click', function () {
     var wrap = document.getElementById('help-wrap');
     var open = wrap.classList.toggle('open');

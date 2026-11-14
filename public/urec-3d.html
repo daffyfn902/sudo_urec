@@ -125,17 +125,17 @@
   #panel input[type=range] {
     -webkit-appearance: none; appearance: none; width: 100%; height: 5px; margin: 12px 0 10px;
     border-radius: 999px; outline: none; cursor: pointer;
-    background: linear-gradient(90deg, var(--traffic-low), var(--traffic-mod), var(--traffic-high));
+    background: var(--track, linear-gradient(90deg, var(--traffic-low), var(--traffic-mod), var(--traffic-high)));   /* set from the forecast in updateTrack() */
   }
   #panel input[type=range]::-webkit-slider-thumb {
     -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%;
-    background: #fff; border: 2.5px solid var(--purple);
-    box-shadow: 0 2px 8px rgba(69, 0, 132, 0.22); cursor: grab;
+    background: #fff; border: 3px solid var(--thumb, var(--purple));
+    box-shadow: 0 2px 8px rgba(32, 36, 55, 0.25); cursor: grab;
   }
   #panel input[type=range]::-moz-range-thumb {
     width: 20px; height: 20px; border-radius: 50%;
-    background: #fff; border: 2.5px solid var(--purple);
-    box-shadow: 0 2px 8px rgba(69, 0, 132, 0.22); cursor: grab;
+    background: #fff; border: 3px solid var(--thumb, var(--purple));
+    box-shadow: 0 2px 8px rgba(32, 36, 55, 0.25); cursor: grab;
   }
   #legend {
     display: flex; gap: 12px; font-size: 11px; font-weight: 550; color: var(--ink-muted); flex-wrap: wrap;
@@ -2085,6 +2085,29 @@
     var f = Math.min(1, t - h), v1 = p1 && p1.open ? p1.pct : p0.pct;   // blend between hours as the slider moves
     return { occ: (p0.pct + (v1 - p0.pct) * f) / 100, open: true };
   }
+  // How busy the whole gym is at time t, or -1 when it's closed. Uses the app's own hourly overall numbers when the
+  // parent page sends them (so the bar matches Home and the sidebar); otherwise averages the open zones.
+  var overallByHour = null;
+  function overallAt(t) {
+    if (overallByHour) {
+      var h = Math.floor(t), a = overallByHour[h], b = overallByHour[h + 1];
+      if (a == null) return -1;
+      return Math.max(0, Math.min(1, b == null ? a : a + (b - a) * (t - h)));
+    }
+    var sum = 0, n = 0;
+    zones.forEach(function (z) {
+      var l = liveAt(z, t); if (l && !l.open) return;
+      sum += Math.max(0, Math.min(1, l ? l.occ : z.curve(t))); n++;
+    });
+    return n ? sum / n : -1;
+  }
+  function busyColour(o) { return o < 0 ? '#CBD5E1' : '#' + colourFor(o).getHexString(); }
+  // Paint the slider track with the day's forecast, so the bar itself shows when the gym is quiet or busy.
+  function updateTrack() {
+    var min = +slider.min, max = +slider.max, stops = [];
+    for (var s = min; s <= max + 1e-6; s += 0.5) stops.push(busyColour(overallAt(s)) + ' ' + ((s - min) / (max - min) * 100).toFixed(1) + '%');
+    slider.style.setProperty('--track', 'linear-gradient(90deg,' + stops.join(',') + ')');
+  }
   function applyTime() {
     var t = parseFloat(slider.value), h = Math.floor(t), m = Math.round((t - h) * 60);
     timeEl.textContent = ((h + 11) % 12 + 1) + ':' + (m < 10 ? '0' : '') + m + (h < 12 ? ' AM' : ' PM');
@@ -2096,6 +2119,7 @@
       var detail = l && !l.open ? 'Closed' : levelFor(o) + ' · ' + Math.round(o * 100) + '%';
       z.label.el.innerHTML = '<i class="dot" style="background:#' + c.getHexString() + '"></i>' + z.name + '<small>' + detail + '</small>';
     });
+    slider.style.setProperty('--thumb', busyColour(overallAt(t)));
     runners.forEach(function (r) { r.active = Math.round(r.zone.occ * r.list.length); });
     var sum = {}, cnt = {};
     zones.forEach(function (z) { sum[z.floor] = (sum[z.floor] || 0) + z.occ; cnt[z.floor] = (cnt[z.floor] || 0) + 1; });
@@ -2110,7 +2134,8 @@
     return String(Math.max(6, Math.min(23, Math.round(nowH * 4) / 4)));
   }
   slider.value = nowSliderValue();
-  slider.addEventListener('input', applyTime); applyTime();
+  slider.addEventListener('input', applyTime); applyTime(); updateTrack();
+  slider.title = 'The bar is coloured by how busy the whole gym is at each time';
   function syncNowBtn() {
     var nowH = new Date().getHours() + new Date().getMinutes() / 60;
     var clamped = Math.max(6, Math.min(23, nowH));
@@ -2239,8 +2264,13 @@
         (data.zones[id] || []).forEach(function (p) { byHour[+p.hour] = { pct: +p.pct, open: !!p.open }; });
         live[id] = byHour;
       });
+      overallByHour = null;
+      if (Array.isArray(data.overall) && data.overall.length) {
+        overallByHour = {};
+        data.overall.forEach(function (p) { overallByHour[+p.hour] = +p.pct / 100; });
+      }
       sourceLabel = typeof data.label === 'string' && data.label ? data.label : 'Forecast';
-      applyTime();
+      applyTime(); updateTrack();
       var sub = document.getElementById('subtitle');
       sub.textContent = sub.textContent.replace(/ · .*$/, ' · ' + sourceLabel);
     }

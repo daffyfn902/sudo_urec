@@ -14,13 +14,22 @@ const links: Array<{
   { to: '/saved', label: 'Saved', icon: Bookmark },
 ]
 
-export function BottomNavigation() {
+interface BottomNavigationProps {
+  mapMode?: boolean
+}
+
+export function BottomNavigation({ mapMode = false }: BottomNavigationProps) {
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-surface-elevated/95 backdrop-blur-xl safe-bottom md:left-1/2 md:max-w-lg md:-translate-x-1/2 md:rounded-t-3xl md:border md:border-b-0 md:shadow-[var(--shadow-float)]"
+      className="fixed inset-x-0 bottom-0 z-50 border-t border-border bg-white/95 shadow-[var(--shadow-nav)] backdrop-blur-xl safe-bottom"
       aria-label="Primary"
     >
-      <ul className="mx-auto flex max-w-lg items-stretch justify-around px-2 pt-2 pb-1">
+      <ul
+        className={[
+          'mx-auto flex items-stretch justify-around px-2 pt-1.5 pb-1',
+          mapMode ? 'max-w-md' : 'max-w-lg',
+        ].join(' ')}
+      >
         {links.map(({ to, label, icon: Icon, end }) => (
           <li key={to} className="flex-1">
             <NavLink
@@ -28,7 +37,7 @@ export function BottomNavigation() {
               end={end}
               className={({ isActive }) =>
                 [
-                  'relative flex flex-col items-center gap-0.5 rounded-xl px-2 py-2 text-[11px] font-medium transition-colors',
+                  'relative flex flex-col items-center gap-0.5 rounded-[12px] px-2 py-2 text-[10px] font-semibold tracking-wide transition-colors',
                   isActive ? 'text-jmu-purple' : 'text-ink-subtle hover:text-ink-muted',
                 ].join(' ')
               }
@@ -38,11 +47,14 @@ export function BottomNavigation() {
                   {isActive && (
                     <motion.span
                       layoutId="nav-pill"
-                      className="absolute inset-0 rounded-xl bg-jmu-lavender"
-                      transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                      className="absolute inset-0 rounded-[12px] bg-jmu-lavender"
+                      transition={{ type: 'spring', stiffness: 420, damping: 34 }}
                     />
                   )}
-                  <Icon className="relative z-10 h-[22px] w-[22px]" strokeWidth={isActive ? 2.25 : 1.75} />
+                  <Icon
+                    className="relative z-10 h-[21px] w-[21px]"
+                    strokeWidth={isActive ? 2.3 : 1.7}
+                  />
                   <span className="relative z-10">{label}</span>
                 </>
               )}

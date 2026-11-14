@@ -9,20 +9,20 @@ export function AppLayout() {
   const isMap = location.pathname === '/map'
 
   return (
-    <div className="relative mx-auto min-h-dvh w-full max-w-5xl">
+    <div className={isMap ? 'relative min-h-dvh w-full' : 'relative mx-auto min-h-dvh w-full'}>
       <AnimatePresence mode="wait">
         <motion.main
           key={location.pathname}
-          initial={reduceMotion ? false : { opacity: 0, y: 8 }}
+          initial={reduceMotion ? false : { opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
-          exit={reduceMotion ? undefined : { opacity: 0, y: -6 }}
-          transition={{ duration: 0.22, ease: 'easeOut' }}
-          className={isMap ? 'h-dvh' : 'min-h-dvh pb-24'}
+          exit={reduceMotion ? undefined : { opacity: 0, y: -4 }}
+          transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
+          className={isMap ? 'h-dvh' : 'min-h-dvh pb-[5.25rem]'}
         >
           <Outlet />
         </motion.main>
       </AnimatePresence>
-      <BottomNavigation />
+      <BottomNavigation mapMode={isMap} />
     </div>
   )
 }

@@ -36,42 +36,43 @@ export function ForecastChart({
           <AreaChart data={data} margin={{ top: 8, right: 4, left: -18, bottom: 0 }}>
             <defs>
               <linearGradient id="forecastFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#450084" stopOpacity={0.28} />
-                <stop offset="100%" stopColor="#450084" stopOpacity={0.02} />
+                <stop offset="0%" stopColor="#450084" stopOpacity={0.2} />
+                <stop offset="100%" stopColor="#450084" stopOpacity={0.01} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(69,0,132,0.06)" vertical={false} />
+            <CartesianGrid strokeDasharray="4 8" stroke="rgba(32,32,51,0.05)" vertical={false} />
             <XAxis
               dataKey="label"
-              tick={{ fontSize: 10, fill: '#9a94a3' }}
+              tick={{ fontSize: 10, fill: '#77758A', fontWeight: 500 }}
               tickLine={false}
               axisLine={false}
               interval="preserveStartEnd"
-              minTickGap={28}
+              minTickGap={32}
             />
             <YAxis
               domain={[0, 100]}
-              tick={{ fontSize: 10, fill: '#9a94a3' }}
+              tick={{ fontSize: 10, fill: '#77758A', fontWeight: 500 }}
               tickLine={false}
               axisLine={false}
-              tickFormatter={(v) => `${v}%`}
-              width={36}
+              tickFormatter={(v) => `${v}`}
+              width={32}
             />
             <Tooltip
               contentStyle={{
-                borderRadius: 12,
-                border: '1px solid rgba(69,0,132,0.1)',
-                boxShadow: '0 8px 24px rgba(69,0,132,0.1)',
+                borderRadius: 14,
+                border: '1px solid #E4E1EB',
+                boxShadow: '0 8px 28px rgba(69,0,132,0.1)',
                 fontSize: 12,
+                padding: '8px 12px',
               }}
-              formatter={(value) => [`${value}% occupied`, 'Simulated']}
+              formatter={(value) => [`${value}%`, 'Occupied']}
               labelFormatter={(label) => String(label)}
             />
             <Area
               type="monotone"
               dataKey="occupancyPercent"
               stroke="#450084"
-              strokeWidth={2.25}
+              strokeWidth={2}
               fill="url(#forecastFill)"
               dot={(props) => {
                 const { cx, cy, payload } = props as {

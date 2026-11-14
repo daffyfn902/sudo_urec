@@ -11,8 +11,8 @@ const MapPage = lazy(() =>
 
 function MapFallback() {
   return (
-    <div className="flex h-dvh items-center justify-center bg-jmu-lavender">
-      <div className="card-surface px-6 py-4 text-sm text-ink-muted">Loading 3D UREC…</div>
+    <div className="flex h-dvh items-center justify-center bg-[#E9EDF4]">
+      <div className="card-surface px-5 py-3 text-[13px] text-ink-muted">Loading UREC…</div>
     </div>
   )
 }

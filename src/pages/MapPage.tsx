@@ -62,6 +62,9 @@ export function MapPage() {
   const previewZoneId = preview?.zoneId ?? null
   const previewChallengeId = preview?.challengeId ?? null
 
+  // Fixed at mount so closing a zone preview never reloads the map. The map opens on the outside of the building;
+  // a zone preview from Explore goes straight to the floors.
+  const [mapSrc] = useState(() => (previewZoneId ? '/urec-3d.html?view=floors' : '/urec-3d.html'))
   const [iframeReady, setIframeReady] = useState(false)
   const [zoneDetails, setZoneDetails] = useState<ZoneDetails | null>(null)
   const [day, setDay] = useState<DayZoneReading[]>([])
@@ -131,7 +134,7 @@ export function MapPage() {
     <div className="relative h-dvh w-full overflow-hidden bg-[#E9EDF4]">
       <iframe
         ref={iframeRef}
-        src="/urec-3d.html"
+        src={mapSrc}
         title="3D UREC building map"
         className="map-frame absolute inset-x-0 top-0 block w-full border-0 bg-[#E9EDF4]"
         onLoad={() => {

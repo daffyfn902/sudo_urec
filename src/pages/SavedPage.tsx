@@ -1,6 +1,7 @@
 import { useCallback } from 'react'
 import { Bookmark, DatabaseZap } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { PageHeader } from '../components/layout/PageHeader'
 import { LiftCard } from '../components/social/LiftCard'
 import { SavedPlanCard } from '../components/ui/SavedPlanCard'
 import { useSavedPlans } from '../hooks/useSavedPlans'
@@ -26,10 +27,18 @@ export function SavedPage() {
 
   return (
     <div className="page-shell safe-top">
-      <header className="mb-7">
-        <h1 className="page-title">Saved</h1>
-        <p className="page-subtitle">Your planned lifts and invitations from friends.</p>
-      </header>
+      <PageHeader
+        eyebrow="Saved"
+        title="Your lifts"
+        subtitle="Workouts you planned and invitations from friends."
+        actions={
+          !nothing ? (
+            <Link to="/plan" className="btn-ghost hidden sm:inline-flex">
+              Plan another
+            </Link>
+          ) : undefined
+        }
+      />
 
       {unavailable && (
         <div className="card-surface mb-4 flex items-start gap-3 p-4">
@@ -44,7 +53,7 @@ export function SavedPage() {
       {error && <p className="mb-4 text-[13px] text-red-600">{error}</p>}
 
       {loading ? (
-        <div className="space-y-3">
+        <div className="grid gap-3 md:grid-cols-2">
           <div className="card-surface h-36 animate-pulse bg-jmu-lavender/40" />
           <div className="card-surface h-36 animate-pulse bg-jmu-lavender/30" />
         </div>
@@ -59,7 +68,7 @@ export function SavedPage() {
           </p>
           <Link
             to="/plan"
-            className="pressable mt-6 rounded-[14px] bg-jmu-purple px-5 py-3 text-[14px] font-semibold text-white hover:bg-jmu-purple-dark"
+            className="btn-primary mt-6 px-5 py-3"
           >
             Find a time
           </Link>
@@ -71,7 +80,7 @@ export function SavedPage() {
               <h2 id="invites-title" className="section-label mb-3 text-jmu-purple">
                 Invitations · {pendingInvites.length} new
               </h2>
-              <div className="space-y-3">
+              <div className="grid gap-3 md:grid-cols-2">
                 {pendingInvites.map((lift) => (
                   <LiftCard key={lift.id} lift={lift} onChanged={onChanged} />
                 ))}
@@ -92,7 +101,7 @@ export function SavedPage() {
                   </Link>
                 </p>
               ) : (
-                <div className="space-y-3">
+                <div className="grid gap-3 md:grid-cols-2">
                   {mine.map((lift) => (
                     <LiftCard key={lift.id} lift={lift} friends={data?.friends.friends} onChanged={onChanged} />
                   ))}
@@ -106,7 +115,7 @@ export function SavedPage() {
               <h2 id="joined-title" className="section-label mb-3">
                 Friends' lifts
               </h2>
-              <div className="space-y-3">
+              <div className="grid gap-3 md:grid-cols-2">
                 {answeredInvites.map((lift) => (
                   <LiftCard key={lift.id} lift={lift} onChanged={onChanged} />
                 ))}
@@ -119,7 +128,7 @@ export function SavedPage() {
               <h2 id="device-title" className="section-label mb-3">
                 Saved on this device
               </h2>
-              <div className="space-y-3">
+              <div className="grid gap-3 md:grid-cols-2">
                 {devicePlans.map((plan) => (
                   <SavedPlanCard key={plan.id} plan={plan} onRemove={removeDevicePlan} />
                 ))}

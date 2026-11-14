@@ -38,3 +38,25 @@ export function formatDisplayDate(iso: string): string {
     day: 'numeric',
   })
 }
+
+/** Local date as YYYY-MM-DD (toISOString would shift to UTC and roll over to tomorrow in the evening). */
+export function toISODate(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
+export function shiftISODate(iso: string, days: number): string {
+  const date = new Date(`${iso}T12:00:00`)
+  date.setDate(date.getDate() + days)
+  return toISODate(date)
+}
+
+/**
+ * The map's time slider position for "now": the current time rounded to 15 minutes and kept inside opening hours.
+ * Matches nowSliderValue() in public/urec-3d.html.
+ */
+export function sliderNow(): number {
+  const d = new Date()
+  const nowH = d.getHours() + d.getMinutes() / 60
+  return Math.max(OPEN_HOUR, Math.min(CLOSE_HOUR, Math.round(nowH * 4) / 4))
+}

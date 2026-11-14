@@ -2,7 +2,7 @@ import { motion, useSpring, useTransform } from 'framer-motion'
 import { useEffect } from 'react'
 import type { TrafficStatus } from '../../data/types'
 import { TrafficBadge } from './TrafficBadge'
-import { trafficColor } from '../../utils/traffic'
+import { busyColor } from '../../utils/traffic'
 import { usePrefersReducedMotion } from '../../hooks/useMediaQuery'
 
 interface OccupancyCardProps {
@@ -36,7 +36,7 @@ export function OccupancyCard({
   hourLabel,
   compact = false,
 }: OccupancyCardProps) {
-  const accent = trafficColor(status)
+  const accent = busyColor(occupancyPercent)
 
   return (
     <div className={['card-surface', compact ? 'p-4' : 'p-5 sm:p-6'].join(' ')}>
@@ -52,7 +52,7 @@ export function OccupancyCard({
             {status === 'low' ? 'Low' : status === 'moderate' ? 'Moderate' : 'High'} traffic
           </h2>
         </div>
-        <TrafficBadge status={status} />
+        <TrafficBadge status={status} percent={occupancyPercent} />
       </div>
 
       <div className={['mt-5 flex items-end gap-5', compact ? 'mt-4' : ''].join(' ')}>

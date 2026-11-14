@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CalendarPlus, Check, DatabaseZap, LogOut, MapPin, UserPlus, X } from 'lucide-react'
+import { PageHeader } from '../components/layout/PageHeader'
 import { Avatar } from '../components/social/Avatar'
 import type { FriendsData, Presence, SocialUser } from '../data/types'
 import { GYM_ZONES } from '../data/zones'
@@ -71,10 +72,11 @@ export function FriendsPage() {
 
   return (
     <div className="page-shell safe-top">
-      <header className="mb-7">
-        <h1 className="page-title">Friends</h1>
-        <p className="page-subtitle">See who's at UREC and invite them to your next lift.</p>
-      </header>
+      <PageHeader
+        eyebrow="Friends"
+        title="Who's at UREC"
+        subtitle="See which friends are here and invite them to your next lift."
+      />
 
       {unavailable ? (
         <div className="card-surface flex items-start gap-3 p-4">
@@ -91,7 +93,73 @@ export function FriendsPage() {
           <div className="card-surface h-40 animate-pulse bg-jmu-lavender/30" />
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="grid gap-4 lg:grid-cols-5 lg:items-start">
+          <div className="order-2 space-y-4 lg:col-span-2">
+          {/* Add a friend */}
+          <section className="card-surface p-4 sm:p-5" aria-labelledby="add-title">
+            <p id="add-title" className="section-label mb-3">
+              Add a friend
+            </p>
+            <form onSubmit={handleAdd} className="flex gap-2">
+              <input
+                type="text"
+                value={addName}
+                onChange={(e) => setAddName(e.target.value)}
+                placeholder="Username"
+                aria-label="Friend's username"
+                autoCapitalize="none"
+                className="min-w-0 flex-1 rounded-xl border border-border bg-jmu-mist px-3.5 py-2.5 text-sm text-ink outline-none transition focus:border-jmu-purple/40 focus:ring-2 focus:ring-jmu-purple/15"
+              />
+              <button
+                type="submit"
+                disabled={busy || !addName.trim()}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-jmu-purple px-3.5 py-2.5 text-sm font-semibold text-white hover:bg-jmu-purple-dark disabled:opacity-50"
+              >
+                <UserPlus className="h-3.5 w-3.5" aria-hidden /> Add
+              </button>
+            </form>
+            {suggestions.length > 0 && (
+              <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                <span className="text-[11px] text-ink-subtle">People you may know:</span>
+                {suggestions.map((u) => (
+                  <button
+                    key={u.username}
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void run(() => social.requestFriend(u.username), `Request sent to ${u.displayName}`)}
+                    className="pressable inline-flex items-center gap-1.5 rounded-full border border-border bg-surface py-0.5 pl-0.5 pr-2.5 text-[12px] font-medium text-ink-muted hover:border-jmu-purple hover:text-jmu-purple disabled:opacity-50"
+                  >
+                    <Avatar user={u} size="sm" /> {u.displayName}
+                  </button>
+                ))}
+              </div>
+            )}
+            {data.friends.outgoing.length > 0 && (
+              <ul className="mt-3 space-y-1.5">
+                {data.friends.outgoing.map((u) => (
+                  <li key={u.username} className="flex items-center justify-between text-[12px] text-ink-muted">
+                    <span>Request sent to {u.displayName}</span>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void run(() => social.removeFriend(u.username))}
+                      className="font-medium text-ink-subtle hover:text-red-600"
+                    >
+                      Cancel
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
+
+          <div aria-live="polite">
+            {(message || error) && (
+              <p className={`text-[13px] ${message?.ok ? 'text-ink-muted' : 'text-red-600'}`}>{message?.text ?? error}</p>
+            )}
+          </div>
+
           {/* Test-user switcher (stands in for login) */}
           <section className="card-surface p-4 sm:p-5" aria-labelledby="signed-in-title">
             <p id="signed-in-title" className="section-label mb-3">
@@ -125,6 +193,9 @@ export function FriendsPage() {
             <p className="mt-2 text-[11px] text-ink-subtle">Test accounts for the demo: tap one to switch. No password.</p>
           </section>
 
+          </div>
+
+          <div className="order-1 space-y-4 lg:col-span-3">
           {/* My check-in */}
           <section className="card-surface p-4 sm:p-5" aria-labelledby="checkin-title">
             <p id="checkin-title" className="section-label mb-3">
@@ -280,69 +351,6 @@ export function FriendsPage() {
               </ul>
             )}
           </section>
-
-          {/* Add a friend */}
-          <section className="card-surface p-4 sm:p-5" aria-labelledby="add-title">
-            <p id="add-title" className="section-label mb-3">
-              Add a friend
-            </p>
-            <form onSubmit={handleAdd} className="flex gap-2">
-              <input
-                type="text"
-                value={addName}
-                onChange={(e) => setAddName(e.target.value)}
-                placeholder="Username"
-                aria-label="Friend's username"
-                autoCapitalize="none"
-                className="min-w-0 flex-1 rounded-xl border border-border bg-jmu-mist px-3.5 py-2.5 text-sm text-ink outline-none transition focus:border-jmu-purple/40 focus:ring-2 focus:ring-jmu-purple/15"
-              />
-              <button
-                type="submit"
-                disabled={busy || !addName.trim()}
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-jmu-purple px-3.5 py-2.5 text-sm font-semibold text-white hover:bg-jmu-purple-dark disabled:opacity-50"
-              >
-                <UserPlus className="h-3.5 w-3.5" aria-hidden /> Add
-              </button>
-            </form>
-            {suggestions.length > 0 && (
-              <div className="mt-3 flex flex-wrap items-center gap-1.5">
-                <span className="text-[11px] text-ink-subtle">People you may know:</span>
-                {suggestions.map((u) => (
-                  <button
-                    key={u.username}
-                    type="button"
-                    disabled={busy}
-                    onClick={() => void run(() => social.requestFriend(u.username), `Request sent to ${u.displayName}`)}
-                    className="pressable inline-flex items-center gap-1.5 rounded-full border border-border bg-surface py-0.5 pl-0.5 pr-2.5 text-[12px] font-medium text-ink-muted hover:border-jmu-purple hover:text-jmu-purple disabled:opacity-50"
-                  >
-                    <Avatar user={u} size="sm" /> {u.displayName}
-                  </button>
-                ))}
-              </div>
-            )}
-            {data.friends.outgoing.length > 0 && (
-              <ul className="mt-3 space-y-1.5">
-                {data.friends.outgoing.map((u) => (
-                  <li key={u.username} className="flex items-center justify-between text-[12px] text-ink-muted">
-                    <span>Request sent to {u.displayName}</span>
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => void run(() => social.removeFriend(u.username))}
-                      className="font-medium text-ink-subtle hover:text-red-600"
-                    >
-                      Cancel
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-
-          <div aria-live="polite">
-            {(message || error) && (
-              <p className={`text-[13px] ${message?.ok ? 'text-ink-muted' : 'text-red-600'}`}>{message?.text ?? error}</p>
-            )}
           </div>
         </div>
       )}

@@ -70,15 +70,15 @@
 
 @layer components {
   .page-shell {
-    @apply mx-auto w-full max-w-lg px-5 pb-8 pt-7 sm:max-w-xl sm:px-6 sm:pt-8 md:max-w-2xl;
+    @apply mx-auto w-full max-w-5xl px-5 pb-10 pt-6 sm:px-8 sm:pt-9 lg:px-10 lg:pt-10;
   }
 
   .page-title {
-    @apply text-[22px] font-semibold tracking-[-0.025em] text-ink sm:text-2xl;
+    @apply text-[24px] font-semibold tracking-[-0.03em] text-ink sm:text-[28px];
   }
 
   .page-subtitle {
-    @apply mt-1.5 max-w-md text-[14px] leading-relaxed text-ink-muted;
+    @apply mt-1.5 max-w-xl text-[14px] leading-relaxed text-ink-muted;
   }
 
   .section-label {
@@ -87,6 +87,33 @@
 
   .pressable {
     @apply transition-transform duration-150 ease-out active:scale-[0.98];
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-[12px] bg-jmu-purple transition-transform duration-150 ease-out active:scale-[0.98] px-4 py-2.5 text-[14px] font-semibold text-white transition-colors hover:bg-jmu-purple-dark disabled:opacity-50;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-[12px] border border-border transition-transform duration-150 ease-out active:scale-[0.98] bg-surface px-4 py-2.5 text-[14px] font-semibold text-ink transition-colors hover:border-border-strong hover:bg-jmu-lavender/40;
+  }
+
+  .card-title {
+    @apply text-[15px] font-semibold tracking-[-0.02em] text-ink;
+  }
+
+  /* The 3D map iframe: leaves room for the bottom tab bar on phones, fills the screen beside the sidebar on desktop */
+  .map-frame {
+    height: calc(100dvh - 72px - env(safe-area-inset-bottom, 0px));
+  }
+  @media (min-width: 1024px) {
+    .map-frame {
+      height: 100dvh;
+    }
+  }
+
+  :where(a, button, input, select, textarea, summary):focus-visible {
+    outline: 2px solid var(--color-jmu-purple-light);
+    outline-offset: 2px;
   }
 }
 

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { CHALLENGE_BY_ID, ZONE_TO_MAP_FOCUS } from '../data/challenges'
-import type { Challenge, DayZoneReading, ZoneDetails } from '../data/types'
+import type { Challenge, DayZoneReading, HourlyForecast, ZoneDetails } from '../data/types'
 import { ZoneDetailSheet } from '../components/ui/ZoneDetailSheet'
 import { useChallengeProgress } from '../hooks/useChallengeProgress'
 import { api } from '../services/api'
@@ -29,15 +29,27 @@ function postClearHighlight(iframe: HTMLIFrameElement | null) {
   iframe?.contentWindow?.postMessage({ type: 'urec:clear-highlight' }, window.location.origin)
 }
 
-/** Send the backend's hourly forecast for all 25 real zones into the 3D map. */
-function postOccupancy(iframe: HTMLIFrameElement | null, day: DayZoneReading[]) {
+/**
+ * Send the backend's hourly forecast for all 25 real zones into the 3D map, plus the gym's overall
+ * occupancy per hour (the same numbers Home and the sidebar show) so the time slider can be coloured by it.
+ */
+function postOccupancy(
+  iframe: HTMLIFrameElement | null,
+  day: DayZoneReading[],
+  overall: HourlyForecast[],
+) {
   if (!iframe?.contentWindow || day.length === 0) return
   const zones: Record<string, Array<{ hour: number; pct: number; open: boolean }>> = {}
   for (const r of day) {
     ;(zones[r.zoneId] ??= []).push({ hour: r.hour, pct: r.occupancyPercent, open: r.isOpen })
   }
   iframe.contentWindow.postMessage(
-    { type: 'urec:occupancy', zones, label: 'Forecast' },
+    {
+      type: 'urec:occupancy',
+      zones,
+      overall: overall.map((h) => ({ hour: h.hour, pct: h.occupancyPercent })),
+      label: 'Forecast',
+    },
     window.location.origin,
   )
 }
@@ -53,6 +65,7 @@ export function MapPage() {
   const [iframeReady, setIframeReady] = useState(false)
   const [zoneDetails, setZoneDetails] = useState<ZoneDetails | null>(null)
   const [day, setDay] = useState<DayZoneReading[]>([])
+  const [overall, setOverall] = useState<HourlyForecast[]>([])
   const activeChallenge: Challenge | null = previewChallengeId
     ? (CHALLENGE_BY_ID[previewChallengeId] ?? null)
     : null
@@ -84,14 +97,17 @@ export function MapPage() {
     void api.getDay(todayISODate()).then((rows) => {
       if (!cancelled) setDay(rows)
     })
+    void api.getForecast(todayISODate(), null, 'any').then((result) => {
+      if (!cancelled) setOverall(result.overview.hourlyForecast)
+    })
     return () => {
       cancelled = true
     }
   }, [])
 
   useEffect(() => {
-    if (iframeReady) postOccupancy(iframeRef.current, day)
-  }, [iframeReady, day])
+    if (iframeReady) postOccupancy(iframeRef.current, day, overall)
+  }, [iframeReady, day, overall])
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
@@ -117,8 +133,7 @@ export function MapPage() {
         ref={iframeRef}
         src="/urec-3d.html"
         title="3D UREC building map"
-        className="absolute inset-x-0 top-0 block w-full border-0 bg-[#E9EDF4]"
-        style={{ height: 'calc(100dvh - 72px - env(safe-area-inset-bottom, 0px))' }}
+        className="map-frame absolute inset-x-0 top-0 block w-full border-0 bg-[#E9EDF4]"
         onLoad={() => {
           setIframeReady(true)
           if (previewZoneId) postFocusZone(iframeRef.current, previewZoneId)

@@ -1,135 +1,147 @@
-import { Link } from 'react-router-dom'
-import { ArrowUpRight, Compass } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { ArrowRight, CalendarClock, Compass, Map as MapIcon } from 'lucide-react'
 import { AskBox } from '../components/ui/AskBox'
+import { BestTimeCard } from '../components/ui/BestTimeCard'
 import { FriendsHereCard } from '../components/social/FriendsHereCard'
-import { OccupancyCard } from '../components/ui/OccupancyCard'
 import { ForecastChart } from '../components/ui/ForecastChart'
+import { OccupancyCard } from '../components/ui/OccupancyCard'
 import { TrafficBadge } from '../components/ui/TrafficBadge'
+import { PageHeader } from '../components/layout/PageHeader'
+import { useOverview } from '../hooks/useOverview'
 import { api } from '../services/api'
-import type { GymOverview } from '../data/types'
-import { formatHour } from '../utils/time'
+import type { DayZoneReading } from '../data/types'
+import { busiestZonesAt } from '../utils/sync'
+import { formatHour, sliderNow, todayISODate } from '../utils/time'
+
+const QUICK_LINKS = [
+  { to: '/map', label: '3D map', hint: 'See every zone', icon: MapIcon },
+  { to: '/plan', label: 'Plan a visit', hint: 'Find a quiet window', icon: CalendarClock },
+  { to: '/explore', label: 'Explore', hint: 'Try something new', icon: Compass },
+] as const
+
+function greeting(): string {
+  const hour = new Date().getHours()
+  return hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening'
+}
 
 export function HomePage() {
-  const [overview, setOverview] = useState<GymOverview | null>(null)
-  const [loading, setLoading] = useState(true)
-
+  const { overview, loading } = useOverview()
+  // Per-zone forecast for today: the same data the 3D map is coloured with
+  const [day, setDay] = useState<DayZoneReading[]>([])
   useEffect(() => {
     let cancelled = false
-    void api.getCurrentOccupancy().then((data) => {
-      if (!cancelled) {
-        setOverview(data)
-        setLoading(false)
-      }
+    void api.getDay(todayISODate()).then((rows) => {
+      if (!cancelled) setDay(rows)
     })
     return () => {
       cancelled = true
     }
   }, [])
+  const mapZones = busiestZonesAt(day, sliderNow())
+  const busiest = mapZones.length > 0 ? mapZones : (overview?.busiestZones ?? [])
+  const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
 
   return (
     <div className="page-shell safe-top">
-      <header className="mb-7">
-        <p className="section-label text-jmu-purple">JMU UREC</p>
-        <h1 className="page-title mt-1.5">Crowd Map</h1>
-        <p className="page-subtitle">
-          See how crowded the gym feels — and find a quieter time to train.
-        </p>
-      </header>
+      <PageHeader
+        eyebrow={today}
+        title={greeting()}
+        subtitle="See how busy the UREC is right now, and find a quieter time to train."
+        actions={
+          <Link to="/map" className="btn-primary hidden sm:inline-flex">
+            <MapIcon className="h-4 w-4" aria-hidden />
+            Open 3D map
+          </Link>
+        }
+      />
 
-      <div className="mb-4 space-y-4">
-        {loading || !overview ? (
-          <div className="card-surface h-44 animate-pulse bg-jmu-lavender/40" />
-        ) : (
-          <OccupancyCard
-            status={overview.status}
-            occupancyPercent={overview.overallOccupancyPercent}
-            headcount={overview.estimatedHeadcount}
-            hourLabel={formatHour(overview.currentHour)}
-          />
-        )}
-        {/* Always shown, even while the overview loads */}
+      <div className="grid gap-4 lg:grid-cols-5">
+        <div className="lg:col-span-3">
+          {loading || !overview ? (
+            <div className="card-surface h-56 animate-pulse bg-jmu-lavender/40" />
+          ) : (
+            <OccupancyCard
+              status={overview.status}
+              occupancyPercent={overview.overallOccupancyPercent}
+              headcount={overview.estimatedHeadcount}
+              hourLabel={formatHour(overview.currentHour)}
+            />
+          )}
+        </div>
+        <div className="lg:col-span-2">
+          <BestTimeCard />
+        </div>
+      </div>
+
+      <nav className="mt-4 grid grid-cols-3 gap-3" aria-label="Quick links">
+        {QUICK_LINKS.map(({ to, label, hint, icon: Icon }) => (
+          <Link
+            key={to}
+            to={to}
+            className="pressable card-surface group flex flex-col gap-2 p-3.5 transition-colors hover:border-border-strong hover:bg-jmu-lavender/30 sm:flex-row sm:items-center sm:gap-3 sm:p-4"
+          >
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] bg-jmu-lavender text-jmu-purple">
+              <Icon className="h-[18px] w-[18px]" strokeWidth={2.1} aria-hidden />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-[14px] font-semibold tracking-[-0.01em] text-ink">{label}</span>
+              <span className="block truncate text-[12px] text-ink-muted">{hint}</span>
+            </span>
+          </Link>
+        ))}
+      </nav>
+
+      <div className="mt-4 space-y-4">
         <AskBox />
+        {/* Hidden by the card itself when the friends database is offline */}
         <FriendsHereCard />
       </div>
 
-      {loading || !overview ? (
-        <div className="space-y-4">
-          <div className="card-surface h-32 animate-pulse bg-jmu-lavender/30" />
-          <div className="card-surface h-40 animate-pulse bg-jmu-lavender/25" />
+      <div className="mt-4 grid gap-4 lg:grid-cols-5">
+        <div className="lg:col-span-3">
+          {loading || !overview ? (
+            <div className="card-surface h-64 animate-pulse bg-jmu-lavender/30" />
+          ) : (
+            <ForecastChart
+              title="Today's forecast"
+              data={overview.hourlyForecast}
+              height={196}
+              highlightHour={overview.currentHour}
+              highlightLabel="Now"
+            />
+          )}
         </div>
-      ) : (
-        <div className="space-y-4">
-          <Link
-            to="/map"
-            className="pressable group flex items-center justify-between rounded-[18px] bg-jmu-purple px-5 py-4 text-white shadow-[var(--shadow-float)] transition-colors hover:bg-jmu-purple-dark"
-          >
-            <div>
-              <p className="text-[15px] font-semibold tracking-[-0.02em]">Explore 3D UREC</p>
-              <p className="mt-0.5 text-[12px] text-white/65">Interactive map · simulated</p>
-            </div>
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/15 transition group-hover:bg-white/20">
-              <ArrowUpRight className="h-4 w-4" strokeWidth={2.25} />
-            </span>
-          </Link>
 
-          <Link
-            to="/explore"
-            className="pressable group card-surface flex items-center justify-between px-5 py-4 transition-colors hover:border-border-strong hover:bg-jmu-lavender/30"
-          >
-            <div className="flex items-start gap-3">
-              <span className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-[12px] bg-jmu-lavender text-jmu-purple">
-                <Compass className="h-4 w-4" strokeWidth={2.25} aria-hidden />
-              </span>
-              <div>
-                <p className="text-[15px] font-semibold tracking-[-0.02em] text-ink">
-                  Explore Something New
-                </p>
-                <p className="mt-0.5 text-[12px] text-ink-muted">
-                  Gentle challenges to try unfamiliar zones
-                </p>
-              </div>
-            </div>
-            <ArrowUpRight className="h-4 w-4 shrink-0 text-ink-subtle transition group-hover:text-jmu-purple" />
-          </Link>
-
-          <section className="card-surface p-4 sm:p-5">
-            <div className="mb-3 flex items-baseline justify-between">
-              <h2 className="text-[15px] font-semibold tracking-[-0.02em] text-ink">
-                Busiest zones
-              </h2>
-              <span className="text-[11px] text-ink-subtle">Simulated</span>
-            </div>
+        <section className="card-surface p-4 sm:p-5 lg:col-span-2" aria-labelledby="busiest-heading">
+          <div className="mb-3 flex items-baseline justify-between">
+            <h2 id="busiest-heading" className="card-title">
+              Busiest zones now
+            </h2>
+            <Link to="/map" className="inline-flex items-center gap-1 text-[12px] font-semibold text-jmu-purple hover:underline">
+              See map <ArrowRight className="h-3 w-3" aria-hidden />
+            </Link>
+          </div>
+          {loading || !overview ? (
+            <div className="h-40 animate-pulse rounded-xl bg-jmu-lavender/30" />
+          ) : (
             <ul className="divide-y divide-border">
-              {overview.busiestZones.map((zone, index) => (
-                <li
-                  key={zone.zoneId}
-                  className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="w-4 text-[13px] font-semibold tabular-nums text-ink-subtle">
-                      {index + 1}
-                    </span>
-                    <span className="text-[14px] font-medium text-ink">{zone.label}</span>
+              {busiest.map((zone, index) => (
+                <li key={zone.zoneId} className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span className="w-4 text-[13px] font-semibold tabular-nums text-ink-subtle">{index + 1}</span>
+                    <span className="truncate text-[14px] font-medium text-ink">{zone.label}</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[13px] font-semibold tabular-nums text-ink">
-                      {zone.occupancyPercent}%
-                    </span>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <span className="text-[13px] font-semibold tabular-nums text-ink">{zone.occupancyPercent}%</span>
                     <TrafficBadge status={zone.status} size="sm" />
                   </div>
                 </li>
               ))}
             </ul>
-          </section>
-
-          <ForecastChart
-            data={overview.hourlyForecast}
-            height={148}
-            highlightHour={overview.currentHour}
-          />
-        </div>
-      )}
+          )}
+        </section>
+      </div>
     </div>
   )
 }

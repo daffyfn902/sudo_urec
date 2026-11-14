@@ -57,3 +57,16 @@ export function clampOccupancy(value: number): number {
 export function headcountFromPercent(capacity: number, percent: number): number {
   return Math.max(1, Math.round((capacity * percent) / 100))
 }
+
+/**
+ * Colour for an occupancy percentage on the same continuous green, yellow, red scale the 3D map uses for its
+ * time slider and zones (see colourFor in public/urec-3d.html), so "right now" and the slider always match.
+ */
+export function busyColor(percent: number): string {
+  const GREEN = [0x16, 0xa6, 0x6a]
+  const YELLOW = [0xf4, 0xb7, 0x40]
+  const RED = [0xe3, 0x4b, 0x55]
+  const o = Math.max(0, Math.min(1, percent / 100))
+  const [from, to, f] = o < 0.5 ? [GREEN, YELLOW, o / 0.5] : [YELLOW, RED, (o - 0.5) / 0.5]
+  return `#${from.map((c, i) => Math.round(c + (to[i] - c) * f).toString(16).padStart(2, '0')).join('')}`
+}

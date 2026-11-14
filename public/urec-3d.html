@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>UREC – 3D Crowd Map</title>
+<title>UREC Radar – 3D Map</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -55,6 +55,11 @@
   }
   #head h1 { margin: 0; font-size: 15px; font-weight: 650; letter-spacing: -0.02em; color: var(--ink); }
   #head p { margin: 2px 0 0; font-size: 11px; font-weight: 500; color: var(--ink-muted); }
+  /* Gym-wide busyness at the time on the slider, tagged Live when the slider is on "now" */
+  #overall { display: flex; align-items: center; gap: 6px; margin-top: 7px; font-size: 12px; font-weight: 650; color: var(--ink); }
+  #overall .pip { width: 9px; height: 9px; border-radius: 50%; box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08); flex: none; }
+  #overall .tag { font-size: 9.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; padding: 2px 6px; border-radius: 999px; background: var(--purple-soft); color: var(--purple); }
+  #overall .tag.live { background: #E3F5EC; color: #0E7448; }
   #help {
     pointer-events: auto;
     width: 34px; height: 34px; border-radius: 50%;
@@ -125,17 +130,17 @@
   #panel input[type=range] {
     -webkit-appearance: none; appearance: none; width: 100%; height: 5px; margin: 12px 0 10px;
     border-radius: 999px; outline: none; cursor: pointer;
-    background: linear-gradient(90deg, var(--traffic-low), var(--traffic-mod), var(--traffic-high));
+    background: var(--track, linear-gradient(90deg, var(--traffic-low), var(--traffic-mod), var(--traffic-high)));   /* set from the forecast in updateTrack() */
   }
   #panel input[type=range]::-webkit-slider-thumb {
     -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%;
-    background: #fff; border: 2.5px solid var(--purple);
-    box-shadow: 0 2px 8px rgba(69, 0, 132, 0.22); cursor: grab;
+    background: #fff; border: 3px solid var(--thumb, var(--purple));
+    box-shadow: 0 2px 8px rgba(32, 36, 55, 0.25); cursor: grab;
   }
   #panel input[type=range]::-moz-range-thumb {
     width: 20px; height: 20px; border-radius: 50%;
-    background: #fff; border: 2.5px solid var(--purple);
-    box-shadow: 0 2px 8px rgba(69, 0, 132, 0.22); cursor: grab;
+    background: #fff; border: 3px solid var(--thumb, var(--purple));
+    box-shadow: 0 2px 8px rgba(32, 36, 55, 0.25); cursor: grab;
   }
   #legend {
     display: flex; gap: 12px; font-size: 11px; font-weight: 550; color: var(--ink-muted); flex-wrap: wrap;
@@ -187,8 +192,9 @@
 <body>
 <div id="head">
   <div class="brand">
-    <h1 id="title">UREC</h1>
-    <p id="subtitle">3D Crowd Map · Simulated</p>
+    <h1 id="title">UREC Radar</h1>
+    <p id="subtitle">3D map · Simulated</p>
+    <div id="overall" aria-live="polite"></div>
   </div>
   <div id="help-wrap">
     <button id="help" type="button" aria-label="How to use" aria-expanded="false">?</button>
@@ -2275,6 +2281,38 @@
     var f = Math.min(1, t - h), v1 = p1 && p1.open ? p1.pct : p0.pct;   // blend between hours as the slider moves
     return { occ: (p0.pct + (v1 - p0.pct) * f) / 100, open: true };
   }
+  // How busy the whole gym is at time t, or -1 when it's closed. Uses the app's own hourly overall numbers when the
+  // parent page sends them (so the bar matches Home and the sidebar); otherwise averages the open zones.
+  var overallByHour = null;
+  function overallAt(t) {
+    if (overallByHour) {
+      var h = Math.floor(t), a = overallByHour[h], b = overallByHour[h + 1];
+      if (a == null) return -1;
+      return Math.max(0, Math.min(1, b == null ? a : a + (b - a) * (t - h)));
+    }
+    var sum = 0, n = 0;
+    zones.forEach(function (z) {
+      var l = liveAt(z, t); if (l && !l.open) return;
+      sum += Math.max(0, Math.min(1, l ? l.occ : z.curve(t))); n++;
+    });
+    return n ? sum / n : -1;
+  }
+  function busyColour(o) { return o < 0 ? '#CBD5E1' : '#' + colourFor(o).getHexString(); }
+  // Paint the slider track with the day's forecast, so the bar itself shows when the gym is quiet or busy.
+  function updateTrack() {
+    var min = +slider.min, max = +slider.max, stops = [];
+    for (var s = min; s <= max + 1e-6; s += 0.5) stops.push(busyColour(overallAt(s)) + ' ' + ((s - min) / (max - min) * 100).toFixed(1) + '%');
+    slider.style.setProperty('--track', 'linear-gradient(90deg,' + stops.join(',') + ')');
+  }
+  // "Gym overall" status for the time on the slider. It reads the same number as the sidebar's Right now card and
+  // the slider thumb, and says Live when the slider sits on the current time.
+  function updateOverall(t) {
+    var el = document.getElementById('overall'); if (!el) return;
+    var o = overallAt(t), isNow = Math.abs(t - parseFloat(nowSliderValue())) < 0.01;
+    el.innerHTML = '<i class="pip" style="background:' + busyColour(o) + '"></i>' +
+      (o < 0 ? 'Closed' : Math.round(o * 100) + '% · ' + levelFor(o)) +
+      '<span class="tag' + (isNow ? ' live' : '') + '">' + (isNow ? 'Live' : 'Forecast') + '</span>';
+  }
   function applyTime() {
     var t = parseFloat(slider.value), h = Math.floor(t), m = Math.round((t - h) * 60);
     timeEl.textContent = ((h + 11) % 12 + 1) + ':' + (m < 10 ? '0' : '') + m + (h < 12 ? ' AM' : ' PM');
@@ -2286,6 +2324,8 @@
       var detail = l && !l.open ? 'Closed' : levelFor(o) + ' · ' + Math.round(o * 100) + '%';
       z.label.el.innerHTML = '<i class="dot" style="background:#' + c.getHexString() + '"></i>' + z.name + '<small>' + detail + '</small>';
     });
+    slider.style.setProperty('--thumb', busyColour(overallAt(t)));
+    updateOverall(t);
     runners.forEach(function (r) { r.active = Math.round(r.zone.occ * r.list.length); });
     var sum = {}, cnt = {};
     zones.forEach(function (z) { sum[z.floor] = (sum[z.floor] || 0) + z.occ; cnt[z.floor] = (cnt[z.floor] || 0) + 1; });
@@ -2300,7 +2340,8 @@
     return String(Math.max(6, Math.min(23, Math.round(nowH * 4) / 4)));
   }
   slider.value = nowSliderValue();
-  slider.addEventListener('input', applyTime); applyTime();
+  slider.addEventListener('input', applyTime); applyTime(); updateTrack();
+  slider.title = 'The bar is coloured by how busy the whole gym is at each time';
   function syncNowBtn() {
     var nowH = new Date().getHours() + new Date().getMinutes() / 60;
     var clamped = Math.max(6, Math.min(23, nowH));
@@ -2407,7 +2448,7 @@
       });
     });
     applyHighlight();
-    document.getElementById('title').textContent = 'UREC';
+    document.getElementById('title').textContent = 'UREC Radar';
     document.getElementById('subtitle').textContent = (n ? 'Level ' + n : 'All floors') + ' · ' + sourceLabel;
     Array.prototype.forEach.call(document.querySelectorAll('#floors button'), function (b) { b.setAttribute('aria-pressed', String(+b.dataset.f === n)); });
     var v = viewFor(n); anim = { t: 0, p0: camera.position.clone(), p1: v.pos, g0: controls.target.clone(), g1: v.tgt };
@@ -2431,8 +2472,14 @@
         (data.zones[id] || []).forEach(function (p) { byHour[+p.hour] = { pct: +p.pct, open: !!p.open }; });
         live[id] = byHour;
       });
-      sourceLabel = typeof data.label === 'string' && data.label ? data.label : 'Forecast';
-      applyTime();
+      overallByHour = null;
+      if (Array.isArray(data.overall) && data.overall.length) {
+        overallByHour = {};
+        data.overall.forEach(function (p) { overallByHour[+p.hour] = +p.pct / 100; });
+      }
+      // the Live / Forecast tag next to the overall status says which it is; the subtitle just says the data is simulated
+      sourceLabel = typeof data.label === 'string' && data.label && data.label !== 'Forecast' ? data.label : 'Simulated';
+      applyTime(); updateTrack();
       var sub = document.getElementById('subtitle');
       sub.textContent = sub.textContent.replace(/ · .*$/, ' · ' + sourceLabel);
     }

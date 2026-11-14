@@ -1,0 +1,53 @@
+{
+  "trained_at": "2026-11-14T02:22:51+00:00",
+  "trained_on": [
+    "2023-24",
+    "2024-25",
+    "2025-26"
+  ],
+  "rows": 269898,
+  "target": "occupancy_pct (open hours; closed hours are 0)",
+  "features": [
+    "hour",
+    "dow",
+    "is_weekend",
+    "zone_id",
+    "category",
+    "floor",
+    "capacity",
+    "students_on_campus",
+    "academic_stress",
+    "novelty",
+    "event_load",
+    "weather"
+  ],
+  "params": {
+    "n_estimators": 700,
+    "learning_rate": 0.05,
+    "num_leaves": 63,
+    "min_child_samples": 40,
+    "subsample": 0.8,
+    "subsample_freq": 1,
+    "colsample_bytree": 0.9,
+    "verbose": -1,
+    "random_state": 0
+  },
+  "validation": {
+    "year": "2025-26",
+    "hist_mean": {
+      "mae_pp": 11.41,
+      "bias_pp": 0.27,
+      "status_acc": 0.775
+    },
+    "last_week": {
+      "mae_pp": 11.97,
+      "bias_pp": 0.2,
+      "status_acc": 0.781
+    },
+    "lightgbm": {
+      "mae_pp": 6.69,
+      "bias_pp": 0.02,
+      "status_acc": 0.874
+    }
+  }
+}

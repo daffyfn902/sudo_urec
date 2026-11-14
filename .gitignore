@@ -26,3 +26,6 @@ dist-ssr
 # Generated synthetic data (regenerate with: python -m sim.generate)
 data/synthetic/
 __pycache__/
+
+# Trained model (regenerate with: python -m ml.train)
+models/*.joblib

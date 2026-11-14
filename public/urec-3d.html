@@ -1384,12 +1384,12 @@
   var scene = new THREE.Scene();
   scene.background = new THREE.Color(0xE9EDF4);
   scene.fog = new THREE.Fog(0xE9EDF4, 560, 1500);
-  var hemi = new THREE.HemisphereLight(0xffffff, 0xc5cedd, 0.85);
+  var hemi = new THREE.HemisphereLight(0xffffff, 0xc5cedd, 0.62);
   scene.add(hemi);
-  var key = new THREE.DirectionalLight(0xffffff, 0.7);
+  var key = new THREE.DirectionalLight(0xffffff, 0.5);
   key.position.set(90, 180, 70);
   scene.add(key);
-  var fill = new THREE.DirectionalLight(0xb8c4d8, 0.32);
+  var fill = new THREE.DirectionalLight(0xb8c4d8, 0.2);
   fill.position.set(-70, 50, -50);
   scene.add(fill);
   var camera = new THREE.PerspectiveCamera(26, 1, 1, 3000);
@@ -1402,10 +1402,10 @@
   function mat(F, kind) {
     var m, o;
     if (kind === 'glass')      { o = 0.28; m = new THREE.MeshBasicMaterial({ color: 0xCBD5E1, side: THREE.DoubleSide }); }
-    else if (kind === 'floor') { o = 1;    m = new THREE.MeshBasicMaterial({ color: 0xF1F4F8, side: THREE.DoubleSide }); }
+    else if (kind === 'floor') { o = 1;    m = new THREE.MeshLambertMaterial({ color: 0xF1F4F8, side: THREE.DoubleSide }); }
     else if (kind === 'faint') { o = 0.14; m = new THREE.MeshBasicMaterial({ color: 0x94A3B8, side: THREE.DoubleSide }); }
     else if (kind === 'zone')  { o = 0.72; m = new THREE.MeshBasicMaterial({ color: 0x16A66A, side: THREE.DoubleSide }); }
-    else if (kind === 'track') { o = 1;    m = new THREE.MeshBasicMaterial({ color: 0xE2E8F0, side: THREE.DoubleSide }); }
+    else if (kind === 'track') { o = 1;    m = new THREE.MeshLambertMaterial({ color: 0xE2E8F0, side: THREE.DoubleSide }); }
     else if (kind === 'shadow'){ o = 0.18; m = new THREE.MeshBasicMaterial({ color: 0x334155, side: THREE.DoubleSide }); }
     else if (kind === 'dot')   { o = 0.92; m = new THREE.MeshBasicMaterial({ color: 0x475569 }); }
     else if (kind === 'line')  { o = 0.72; m = new THREE.LineBasicMaterial({ color: 0x64748B }); }
@@ -1468,50 +1468,222 @@
   }
 
   // =====================================================================
-  // People: small walking figures (torso + head + swinging legs).
-  // Three meshes per person, shared geometry, so a few hundred stay cheap.
+  // People: lit, rounded figures drawn with instancing (one draw call per body part per floor).
+  // Each person has a pose (swinging limbs, lean, lift) driven by an activity: walking, swimming,
+  // climbing, shooting hoops, lifting, running on treadmills, spinning, class moves, sitting...
   // =====================================================================
-  var PERSON_SCALE = 1.25, FEET_Y = 0.3, crowds = [];
-  function mergeGeos(list) {
-    var pos = [];
-    list.forEach(function (g) { var n = g.index ? g.toNonIndexed() : g; Array.prototype.push.apply(pos, n.attributes.position.array); });
-    var m = new THREE.BufferGeometry(); m.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); m.computeBoundingSphere(); return m;
+  var PERSON_SCALE = 1.55, FEET_Y = 0.3, PROP_Y = 0.24, TWO_PI = Math.PI * 2, clockT = 0, crowds = [];
+  function pick(a) { return a[Math.floor(Math.random() * a.length)]; }
+  function capsule(r, len, seg) {
+    var pts = [], h = len / 2 - r, i, a;
+    for (i = 0; i <= seg; i++) { a = -Math.PI / 2 + (Math.PI / 2) * i / seg; pts.push(new THREE.Vector2(Math.max(0, r * Math.cos(a)), -h + r * Math.sin(a))); }
+    for (i = 0; i <= seg; i++) { a = (Math.PI / 2) * i / seg; pts.push(new THREE.Vector2(r * Math.cos(a), h + r * Math.sin(a))); }
+    return new THREE.LatheGeometry(pts, 10);
   }
-  var bodyGeo = (function () {
-    var torso = new THREE.CylinderGeometry(0.34, 0.4, 0.8, 8); torso.translate(0, 1.26, 0);
-    var head = new THREE.SphereGeometry(0.25, 10, 8); head.translate(0, 1.9, 0);
-    var armL = new THREE.BoxGeometry(0.15, 0.66, 0.17); armL.translate(-0.52, 1.24, 0);
-    var armR = new THREE.BoxGeometry(0.15, 0.66, 0.17); armR.translate(0.52, 1.24, 0);
-    return mergeGeos([torso, head, armL, armR]);
+  var G = (function () {
+    var torso = capsule(0.3, 0.86, 5); torso.scale(1.15, 1, 0.72); torso.translate(0, 1.2, 0);
+    var head = new THREE.SphereGeometry(0.23, 12, 10); head.translate(0, 1.84, 0);
+    var arm = capsule(0.085, 0.72, 4); arm.translate(0, -0.36, 0);        // pivots at the shoulder
+    var leg = capsule(0.125, 0.94, 4); leg.translate(0, -0.47, 0);        // pivots at the hip
+    var shadow = new THREE.CircleGeometry(0.62, 14); shadow.rotateX(-Math.PI / 2); shadow.translate(0, 0.02, 0);
+    var box = new THREE.BoxGeometry(1, 1, 1); box.translate(0, 0.5, 0);
+    return { torso: torso, head: head, arm: arm, leg: leg, shadow: shadow, box: box };
   })();
-  var legGeo = new THREE.BoxGeometry(0.24, 0.9, 0.26); legGeo.translate(0, -0.45, 0);   // pivots at the hip
-  var SHIRTS = [0x334155, 0x450084, 0x1E3A8A, 0x64748B, 0x7C3AED, 0x0F172A];
-  function personMats(F) {
-    if (!F.pm) {
-      F.pm = SHIRTS.map(function (c) { var m = mat(F, 'dot'); m.color.setHex(c); m.userData.base = 1; m.opacity = 1; m.depthWrite = true; return m; });
-      F.legMat = mat(F, 'dot'); F.legMat.color.setHex(0x1E293B); F.legMat.userData.base = 1; F.legMat.opacity = 1; F.legMat.depthWrite = true;
-    }
-    return F;
-  }
+  var SHIRTS = [0x334155, 0x450084, 0x1E3A8A, 0x64748B, 0x7C3AED, 0x0F172A, 0xE2E8F0, 0x0EA5E9, 0xBE185D, 0x475569].map(function (c) { return new THREE.Color(c); });
+  var SKINS = [0xF1C9A5, 0xDDA77F, 0xB87D56, 0x8A5A3C, 0x5E3B26].map(function (c) { return new THREE.Color(c); });
+  var PANTS = [0x1E293B, 0x334155, 0x0F172A, 0x475569, 0x3F3F46].map(function (c) { return new THREE.Color(c); });
+
   function makePerson(F) {
-    personMats(F);
-    var g = new THREE.Group(), body = new THREE.Mesh(bodyGeo, F.pm[Math.floor(Math.random() * F.pm.length)]);
-    var lL = new THREE.Mesh(legGeo, F.legMat), lR = new THREE.Mesh(legGeo, F.legMat);
-    lL.position.set(-0.14, 0.9, 0); lR.position.set(0.14, 0.9, 0);
-    g.add(body); g.add(lL); g.add(lR);
-    g.scale.setScalar(PERSON_SCALE * (0.9 + Math.random() * 0.2)); g.visible = false; F.group.add(g);
-    return { g: g, lL: lL, lR: lR, phase: Math.random() * 6.28, heading: Math.random() * 6.28 };
+    var list = F.people || (F.people = []);
+    var p = { F: F, i: list.length, x: 0, z: 0, tx: 0, tz: 0, speed: 1, wait: 0, phase: Math.random() * TWO_PI, heading: Math.random() * TWO_PI,
+      fade: 0, shown: false, size: 0.92 + Math.random() * 0.16, shirt: pick(SHIRTS), skin: pick(SKINS), pants: pick(PANTS),
+      act: 'walk', t: 0, dur: 0, stn: null, goStn: null, seed: Math.random(), off: Math.random() * 0.4, fixed: false, wantStn: false, skip: false, baseLift: 0 };
+    list.push(p); return p;
   }
-  function stride(p, moving, speed, dt) {
-    var swing = 0, bob = 0;
-    if (moving) { p.phase += speed * dt * 2.4; swing = Math.sin(p.phase) * Math.min(0.85, 0.3 + speed * 0.18); bob = Math.abs(Math.sin(p.phase)) * 0.06; }
-    else { swing *= 0.5; }
-    p.lL.rotation.x = swing; p.lR.rotation.x = -swing; p.g.position.y = FEET_Y + bob;
+  function addProp(F, x, y, z, h, sx, sy, sz, color) { (F.props || (F.props = [])).push({ x: x, y: PROP_Y + y, z: z, h: h, sx: sx, sy: sy, sz: sz, c: new THREE.Color(color) }); }
+
+  // Build the instanced meshes once a floor's people and props are known.
+  function finalizePeople(F) {
+    var list = F.people || [], n = list.length, i;
+    function lit() { var m = new THREE.MeshLambertMaterial({ color: 0xffffff }); m.transparent = true; m.userData.base = 1; F.mats.push(m); return m; }
+    function inst(geo, mat, count, dynamic) {
+      var im = new THREE.InstancedMesh(geo, mat, count); im.frustumCulled = false;
+      if (dynamic) im.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      var z = new THREE.Matrix4().makeScale(0, 0, 0); for (var k = 0; k < count; k++) im.setMatrixAt(k, z);
+      F.group.add(im); return im;
+    }
+    if (n) {
+      var shMat = mat(F, 'shadow'); shMat.color.setHex(0x000000); shMat.userData.base = 0.26; shMat.opacity = 0.26;
+      F.parts = { body: inst(G.torso, lit(), n, 1), head: inst(G.head, lit(), n, 1), arms: inst(G.arm, lit(), 2 * n, 1), legs: inst(G.leg, lit(), 2 * n, 1), shadow: inst(G.shadow, shMat, n, 1) };
+      for (i = 0; i < n; i++) {
+        var p = list[i];
+        F.parts.body.setColorAt(i, p.shirt); F.parts.head.setColorAt(i, p.skin);
+        F.parts.arms.setColorAt(2 * i, p.skin); F.parts.arms.setColorAt(2 * i + 1, p.skin);
+        F.parts.legs.setColorAt(2 * i, p.pants); F.parts.legs.setColorAt(2 * i + 1, p.pants);
+      }
+      ['body', 'head', 'arms', 'legs'].forEach(function (k) { F.parts[k].instanceColor.needsUpdate = true; });
+    }
+    var pr = F.props || [];
+    if (pr.length) {
+      var pm = new THREE.InstancedMesh(G.box, (function () { var m = new THREE.MeshLambertMaterial({ color: 0xffffff }); m.transparent = true; m.userData.base = 1; F.mats.push(m); return m; })(), pr.length);
+      pm.frustumCulled = false;
+      var mt = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), pv = new THREE.Vector3(), sv = new THREE.Vector3();
+      pr.forEach(function (o, k) { e.set(0, o.h, 0); q.setFromEuler(e); pv.set(o.x, o.y, o.z); sv.set(o.sx, o.sy, o.sz); mt.compose(pv, q, sv); pm.setMatrixAt(k, mt); pm.setColorAt(k, o.c); });
+      pm.instanceColor.needsUpdate = true; F.group.add(pm);
+    }
   }
-  function turnTo(p, target, dt) {
-    var diff = ((target - p.heading + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI;
-    p.heading += diff * Math.min(1, dt * 8); p.g.rotation.y = p.heading;
+
+  // ---------- pose + drawing ----------
+  var _P = new THREE.Matrix4(), _L = new THREE.Matrix4(), _M = new THREE.Matrix4(), _Z = new THREE.Matrix4().makeScale(0, 0, 0),
+      _q = new THREE.Quaternion(), _e = new THREE.Euler(), _pos = new THREE.Vector3(), _sv = new THREE.Vector3();
+  function resetPose(p) { p.lift = 0; p.pitch = 0; p.roll = 0; p.lA = 0; p.rA = 0; p.lAz = 0; p.rAz = 0; p.lL = 0; p.rL = 0; p.lLz = 0; p.rLz = 0; p.baseLift = 0; }
+  function limb(im, idx, ox, oy, rx, rz) {
+    _L.makeRotationX(rx); if (rz) { _M.makeRotationZ(rz); _L.premultiply(_M); }
+    _L.setPosition(ox, oy, 0); _M.multiplyMatrices(_P, _L); im.setMatrixAt(idx, _M);
   }
+  function writePerson(p) {
+    var P = p.F.parts, i = p.i, s = PERSON_SCALE * p.size * p.fade;
+    _pos.set(p.x, FEET_Y + p.lift + p.baseLift, p.z); _e.set(p.pitch, p.heading, p.roll, 'YXZ'); _q.setFromEuler(_e); _sv.set(s, s, s); _P.compose(_pos, _q, _sv);
+    P.body.setMatrixAt(i, _P); P.head.setMatrixAt(i, _P);
+    limb(P.arms, 2 * i, -0.42, 1.5, p.lA, p.lAz); limb(P.arms, 2 * i + 1, 0.42, 1.5, p.rA, p.rAz);
+    limb(P.legs, 2 * i, -0.15, 0.92, p.lL, p.lLz); limb(P.legs, 2 * i + 1, 0.15, 0.92, p.rL, p.rLz);
+    var sh = p.lift > 2.2 ? 0 : s * (1 - Math.min(0.5, p.lift * 0.25));
+    _M.makeScale(sh, sh, sh); _M.setPosition(p.x, FEET_Y + Math.max(0, p.baseLift), p.z); P.shadow.setMatrixAt(i, _M);
+    p.shown = true; p.F.dirty = true;
+  }
+  function hidePerson(p) {
+    var P = p.F.parts, i = p.i; P.body.setMatrixAt(i, _Z); P.head.setMatrixAt(i, _Z); P.shadow.setMatrixAt(i, _Z);
+    P.arms.setMatrixAt(2 * i, _Z); P.arms.setMatrixAt(2 * i + 1, _Z); P.legs.setMatrixAt(2 * i, _Z); P.legs.setMatrixAt(2 * i + 1, _Z);
+    p.shown = false; p.F.dirty = true;
+  }
+  function turnTo(p, target, dt, rate) {
+    var diff = ((target - p.heading + Math.PI) % TWO_PI + TWO_PI) % TWO_PI - Math.PI;
+    p.heading += diff * Math.min(1, dt * (rate || 8));
+  }
+  function walkPose(p, speed, dt) {
+    p.phase += speed * dt * 2.4;
+    var s = Math.sin(p.phase), amp = Math.min(0.95, 0.3 + speed * 0.18);
+    p.lL = s * amp; p.rL = -s * amp; p.lA = -s * amp * 0.9; p.rA = s * amp * 0.9;
+    p.lift = Math.abs(Math.cos(p.phase)) * 0.05 * Math.min(1.6, speed);
+    if (speed > 2.2) { p.pitch = 0.14; p.lA *= 1.3; p.rA *= 1.3; }
+  }
+
+  // ---------- activities (each sets the pose for this frame) ----------
+  var ACT = {
+    idle: function (p) { p.lA = 0.05 * Math.sin(clockT * 1.3 + p.seed * 9); p.rA = -p.lA; p.roll = 0.015 * Math.sin(clockT * 0.9 + p.seed * 7); },
+    jump: function (p) { var s = Math.sin(Math.PI * Math.min(1, p.t / p.dur)); p.lift = s * 1.3; p.lA = p.rA = -2.7 * s; p.lL = 0.4 * s; p.rL = -0.2 * s; },
+    swing: function (p) { var u = Math.min(1, p.t / p.dur); p.rA = -2.4 + 3.6 * u; p.lA = -0.7; p.roll = 0.3 * Math.sin(Math.PI * u); p.lL = -0.3; p.rL = 0.25; },
+    run: function (p, dt) { walkPose(p, 2.4, dt); },
+    press: function (p) { var u = 0.5 - 0.5 * Math.cos(clockT * 2.4 + p.seed * 6); p.lA = p.rA = -(1.3 + 1.7 * u); p.lAz = -0.18 * u; p.rAz = 0.18 * u; p.lift = 0.03 * u; },
+    curl: function (p) { var u = 0.5 - 0.5 * Math.cos(clockT * 2.8 + p.seed * 6); p.lA = -(0.1 + 1.45 * u); p.rA = -(0.1 + 1.45 * (1 - u)); },
+    jacks: function (p) { var ph = (clockT + p.off) * TWO_PI * 1.1, s = 0.5 - 0.5 * Math.cos(ph); p.lAz = -Math.PI * 0.9 * s; p.rAz = Math.PI * 0.9 * s; p.lLz = -0.38 * s; p.rLz = 0.38 * s; p.lift = 0.3 * Math.pow(Math.sin(ph), 2); },
+    flow: function (p) { var ph = (clockT + p.off) * 0.7, u = 0.5 - 0.5 * Math.cos(ph); p.lA = p.rA = -Math.PI * u; p.roll = 0.12 * Math.sin(ph * 0.5); },
+    stretch: function (p) { var ph = clockT * 0.6 + p.seed * 3, s = Math.sin(ph); p.roll = 0.32 * s; p.rAz = 2.9 * (0.5 + 0.5 * s); p.lAz = -2.9 * (0.5 - 0.5 * s); },
+    bike: function (p) { var ph = (clockT + p.off) * 5.2, s = Math.sin(ph); p.lL = -0.55 + 0.55 * s; p.rL = -0.55 - 0.55 * s; p.pitch = 0.3; p.lA = p.rA = -1.1; p.lift = 0.02 * Math.abs(s); },
+    sit: function (p) { p.lL = p.rL = -1.5; p.lA = p.rA = -0.5 + 0.1 * Math.sin(clockT * 1.1 + p.seed * 8); p.roll = 0.02 * Math.sin(clockT * 0.7 + p.seed * 5); },
+    swim: function (p, dt, c) {
+      p.phase += dt * 4.2; p.pitch = Math.PI / 2; p.lift = 0.5; p.lA = p.phase; p.rA = p.phase + Math.PI;
+      var f = Math.sin(p.phase * 2.2) * 0.35; p.lL = f; p.rL = -f;
+      var a = p.sd * p.speed * dt;
+      if (c.axis === 'x') {
+        p.x += a; p.z = p.lane; if (p.x > c.hiA) { p.x = c.hiA; p.sd = -1; } if (p.x < c.loA) { p.x = c.loA; p.sd = 1; }
+        turnTo(p, p.sd > 0 ? Math.PI / 2 : -Math.PI / 2, dt, 6);
+      } else {
+        p.z += a; p.x = p.lane; if (p.z > c.hiA) { p.z = c.hiA; p.sd = -1; } if (p.z < c.loA) { p.z = c.loA; p.sd = 1; }
+        turnTo(p, p.sd > 0 ? 0 : Math.PI, dt, 6);
+      }
+    },
+    climb: function (p, dt) {
+      p.phase += dt * 3.2; p.cy += p.cd * (p.cd > 0 ? 0.9 : 1.6) * dt;
+      if (p.cy > 5.2) { p.cy = 5.2; p.cd = -1; } if (p.cy < 0.2) { p.cy = 0.2; p.cd = 1; }
+      var s = Math.sin(p.phase); p.lift = p.cy; p.lA = -Math.PI + 0.55 * s; p.rA = -Math.PI - 0.55 * s; p.lL = -0.7 * Math.max(0, s); p.rL = -0.7 * Math.max(0, -s);
+    }
+  };
+
+  // ---------- behaviour ----------
+  function chooseNext(c, p) {
+    if (p.wantStn && !p.skip) {
+      var free = c.stations.filter(function (s) { return !s.owner || s.owner === p; });
+      if (free.length) { var s = pick(free); p.goStn = s; s.owner = p; p.tx = s.x; p.tz = s.z; return; }
+    }
+    p.skip = false; var t = c.pick(); p.tx = t.x; p.tz = t.z;
+  }
+  function arrive(c, p) {
+    if (p.goStn) {
+      var s = p.goStn; p.goStn = null; p.stn = s; p.x = s.x; p.z = s.z; p.heading = s.h; p.act = s.act; p.t = 0; p.dur = s.act === 'sit' ? 25 + Math.random() * 40 : 14 + Math.random() * 26; return;
+    }
+    if (c.hoops.length && Math.random() < 0.5) {
+      var best = c.hoops[0], bd = 1e9; c.hoops.forEach(function (h) { var d = Math.hypot(h.x - p.x, h.z - p.z); if (d < bd) { bd = d; best = h; } });
+      p.heading = Math.atan2(best.x - p.x, best.z - p.z); p.act = 'jump'; p.t = 0; p.dur = 0.85; return;
+    }
+    if (c.kind === 'racq' && Math.random() < 0.55) { p.act = 'swing'; p.t = 0; p.dur = 0.6; p.heading = Math.random() * TWO_PI; return; }
+    p.wait = c.style.pause * (0.4 + Math.random() * 1.2);
+  }
+  function endActivity(c, p) {
+    if (p.stn) { p.stn.owner = null; p.stn = null; }
+    p.act = 'walk'; p.t = 0; p.pitch = 0; p.wait = 0.3 + Math.random() * 1.2; p.skip = Math.random() < 0.4;
+  }
+  function stepPerson(c, p, dt) {
+    resetPose(p);
+    if (p.act === 'walk') {
+      if (p.wait > 0) { p.wait -= dt; ACT.idle(p); if (p.wait <= 0) chooseNext(c, p); }
+      else {
+        var dx = p.tx - p.x, dz = p.tz - p.z, d = Math.hypot(dx, dz);
+        if (d < (p.goStn ? 0.12 : 0.45)) arrive(c, p);
+        else {
+          var vx = dx / d, vz = dz / d, sx = 0, sz = 0;
+          for (var k = 0; k < c.list.length; k++) {   // keep a little personal space
+            var q = c.list[k]; if (q === p || q.fade < 0.5) continue;
+            var ex = p.x - q.x, ez = p.z - q.z, d2 = ex * ex + ez * ez; if (d2 < 3 && d2 > 1e-4) { sx += ex / d2; sz += ez / d2; }
+          }
+          vx += sx * 0.8; vz += sz * 0.8; var vl = Math.hypot(vx, vz) || 1; vx /= vl; vz /= vl;
+          var st = Math.min(d, p.speed * dt), nx = p.x + vx * st, nz = p.z + vz * st;
+          if (p.goStn || inPoly(c.poly, nx, nz)) { p.x = nx; p.z = nz; } else { p.wait = 0.2; p.goStn && (p.goStn.owner = null, p.goStn = null); }
+          turnTo(p, Math.atan2(vx, vz), dt); walkPose(p, p.speed, dt);
+        }
+      }
+    } else {
+      p.t += dt; if (p.stn) p.baseLift = p.stn.lift;
+      ACT[p.act](p, dt, c);
+      if (p.t >= p.dur) endActivity(c, p);
+    }
+  }
+  function resetHidden(c, p) {
+    if (p.stn) { p.stn.owner = null; p.stn = null; } if (p.goStn) { p.goStn.owner = null; p.goStn = null; }
+    if (p.fixed) return;
+    var s = c.spot(); p.x = s.x; p.z = s.z; p.act = 'walk'; p.t = 0; p.pitch = 0; p.wait = Math.random() * 2;
+  }
+  function updatePeople(dt) {
+    clockT += dt;
+    crowds.forEach(function (c) {
+      var F = built[c.floor]; if (!F.group.visible) return;
+      for (var i = 0; i < c.list.length; i++) {
+        var p = c.list[i], on = i < c.active ? 1 : 0;
+        p.fade += (on - p.fade) * Math.min(1, dt * 6); if (Math.abs(on - p.fade) < 0.02) p.fade = on;
+        if (!on && p.fade === 0) { if (p.shown) { hidePerson(p); resetHidden(c, p); } continue; }
+        stepPerson(c, p, dt); writePerson(p);
+      }
+    });
+    runners.forEach(function (r) {
+      var F = built[r.zone.floor]; if (!F.group.visible) return;
+      var total = r.cum[r.cum.length - 1];
+      r.list.forEach(function (rn, i) {
+        var on = i < r.active ? 1 : 0; rn.fade += (on - rn.fade) * Math.min(1, dt * 6); if (Math.abs(on - rn.fade) < 0.02) rn.fade = on;
+        if (!on && rn.fade === 0) { if (rn.shown) hidePerson(rn); return; }
+        resetPose(rn);
+        rn.d = (rn.d + rn.v * dt) % total; var j = 0; while (r.cum[j + 1] < rn.d) j++;
+        var a = r.path[j], b = r.path[(j + 1) % r.path.length], t = (rn.d - r.cum[j]) / (r.cum[j + 1] - r.cum[j]), nx = -(b.z - a.z), nz = b.x - a.x, nl = Math.hypot(nx, nz) || 1;
+        rn.x = a.x + (b.x - a.x) * t + nx / nl * rn.lane; rn.z = a.z + (b.z - a.z) * t + nz / nl * rn.lane;
+        turnTo(rn, Math.atan2(b.x - a.x, b.z - a.z), dt); walkPose(rn, rn.v, dt); writePerson(rn);
+      });
+    });
+    Object.keys(built).forEach(function (k) {
+      var F = built[k]; if (!F.dirty || !F.parts) return; F.dirty = false;
+      ['body', 'head', 'arms', 'legs', 'shadow'].forEach(function (n) { F.parts[n].instanceMatrix.needsUpdate = true; });
+    });
+  }
+
+  // ---------- geometry helpers + crowd setup ----------
   function polyArea(poly) { var a = 0; for (var i = 0; i < poly.length; i++) { var p = poly[i], q = poly[(i + 1) % poly.length]; a += p.x * q.z - q.x * p.z; } return Math.abs(a) / 2; }
   function inPoly(poly, x, z) {
     var inside = false;
@@ -1520,32 +1692,122 @@
     }
     return inside;
   }
+  function kindFor(id) {
+    if (/pool/.test(id)) return 'pool';
+    if (/mac|forum/.test(id)) return 'court';
+    if (/racquet/.test(id)) return 'racq';
+    if (/wellness|stretch/.test(id)) return 'mats';
+    if (/fitness|cardio/.test(id)) return 'gym';
+    if (/group_ex|mind_body|multipurpose|cycle/.test(id)) return 'class';
+    if (/climbing/.test(id)) return 'climb';
+    if (/cafe/.test(id)) return 'cafe';
+    return 'wander';
+  }
   function zoneStyle(id) {
-    if (/pool/.test(id)) return { per: 70, min: 4, max: 16, speed: 0.8, pause: 3 };
-    if (/mac|forum|racquet/.test(id)) return { per: 55, min: 6, max: 22, speed: 2.3, pause: 0.4 };
-    if (/fitness|cardio|wellness|stretch/.test(id)) return { per: 45, min: 6, max: 22, speed: 0.9, pause: 5 };
-    if (/mind_body|group_ex|cycle|multipurpose/.test(id)) return { per: 28, min: 4, max: 14, speed: 0.7, pause: 8 };
-    if (/climbing|adventure/.test(id)) return { per: 40, min: 4, max: 14, speed: 0.8, pause: 4 };
+    var k = kindFor(id);
+    if (k === 'pool') return { per: 70, min: 4, max: 16, speed: 0.9, pause: 3 };
+    if (k === 'court') return { per: 55, min: 6, max: 22, speed: 2.3, pause: 0.5 };
+    if (k === 'racq') return { per: 55, min: 4, max: 14, speed: 2.1, pause: 0.5 };
+    if (k === 'gym' || k === 'mats') return { per: 40, min: 6, max: 24, speed: 1.2, pause: 3 };
+    if (k === 'class') return { per: 24, min: 4, max: 16, speed: 1.0, pause: 2 };
+    if (k === 'climb') return { per: 40, min: 6, max: 14, speed: 1.0, pause: 3 };
+    if (k === 'cafe') return { per: 22, min: 5, max: 12, speed: 1.1, pause: 3 };
     return { per: 40, min: 4, max: 12, speed: 1.2, pause: 2.5 };
   }
-  // People who wander around inside one area. zone = a coloured zone (headcount follows its occupancy),
-  // or null for ambient areas (lobby, offices...), which follow the floor's average at `factor`.
-  function addCrowd(F, px, zone, style, factor) {
+  function gridSpots(poly, b, sp, inset) {
+    var out = []; for (var x = b.minX + inset; x <= b.maxX - inset; x += sp) for (var z = b.minZ + inset; z <= b.maxZ - inset; z += sp) if (inPoly(poly, x, z)) out.push({ x: x, z: z });
+    return out;
+  }
+  // People who live in one area. zone = a coloured zone (headcount follows its occupancy), or null for
+  // ambient areas (lobby, offices...), which follow the floor's average at `factor`.
+  function addCrowd(F, px, zone, style, factor, id) {
+    var kind = zone ? kindFor(id) : 'wander';
     var poly = px.map(W), cx = 0, cz = 0; poly.forEach(function (v) { cx += v.x; cz += v.z; }); cx /= poly.length; cz /= poly.length;
     poly = poly.map(function (v) { return { x: cx + (v.x - cx) * 0.86, z: cz + (v.z - cz) * 0.86 }; });
-    var minX = 1e9, maxX = -1e9, minZ = 1e9, maxZ = -1e9;
-    poly.forEach(function (v) { minX = Math.min(minX, v.x); maxX = Math.max(maxX, v.x); minZ = Math.min(minZ, v.z); maxZ = Math.max(maxZ, v.z); });
+    var b = { minX: 1e9, maxX: -1e9, minZ: 1e9, maxZ: -1e9 };
+    poly.forEach(function (v) { b.minX = Math.min(b.minX, v.x); b.maxX = Math.max(b.maxX, v.x); b.minZ = Math.min(b.minZ, v.z); b.maxZ = Math.max(b.maxZ, v.z); });
     function spot() {
-      for (var i = 0; i < 40; i++) { var x = minX + Math.random() * (maxX - minX), z = minZ + Math.random() * (maxZ - minZ); if (inPoly(poly, x, z)) return { x: x, z: z }; }
+      for (var i = 0; i < 40; i++) { var x = b.minX + Math.random() * (b.maxX - b.minX), z = b.minZ + Math.random() * (b.maxZ - b.minZ); if (inPoly(poly, x, z)) return { x: x, z: z }; }
       return { x: cx, z: cz };
     }
-    var n = Math.max(style.min, Math.min(style.max, Math.round(polyArea(poly) / style.per))), list = [];
-    for (var i = 0; i < n; i++) {
-      var p = makePerson(F), s = spot(), t = spot();
-      p.x = s.x; p.z = s.z; p.tx = t.x; p.tz = t.z; p.speed = style.speed * (0.7 + Math.random() * 0.6); p.wait = Math.random() * style.pause;
-      p.g.position.set(p.x, FEET_Y, p.z); list.push(p);
+    var midZ = (b.minZ + b.maxZ) / 2, hoops = [];
+    var c = { floor: F.n, zone: zone, factor: factor || 1, style: style, kind: kind, poly: poly, list: [], active: 0, spot: spot, pick: spot, stations: [], hoops: hoops };
+    var n = Math.max(style.min, Math.min(style.max, Math.round(polyArea(poly) / style.per)));
+
+    function station(x, z, h, act, lift) { var s = { x: x, z: z, h: h, act: act, lift: lift, owner: null }; c.stations.push(s); return s; }
+
+    if (kind === 'court') {
+      [[b.minX + 1.8, 1], [b.maxX - 1.8, -1]].forEach(function (h) {
+        var x = h[0], s = h[1]; hoops.push({ x: x + s * 0.5, z: midZ });
+        addProp(F, x - s * 0.55, 0, midZ, 0, 0.2, 3.4, 0.2, 0x64748B);             // pole
+        addProp(F, x - s * 0.25, 2.55, midZ, 0, 0.12, 1.5, 2.2, 0xF8FAFC);          // backboard
+        addProp(F, x + s * 0.25, 2.95, midZ, 0, 0.9, 0.08, 0.9, 0xF97316);          // rim
+      });
+      c.pick = function () {
+        if (Math.random() < 0.35) { var h = pick(hoops), x = h.x + (h.x < cx ? 1 : -1) * (1.5 + Math.random() * 4), z = h.z + (Math.random() - 0.5) * 6; if (inPoly(poly, x, z)) return { x: x, z: z }; }
+        return spot();
+      };
+    } else if (kind === 'gym' || kind === 'mats') {
+      gridSpots(poly, b, 5.0, 2.2).forEach(function (s, k) {
+        if (kind === 'mats') { addProp(F, s.x, 0, s.z, 0, 1.0, 0.06, 2.2, k % 2 ? 0x7C3AED : 0x0EA5E9); station(s.x, s.z, 0, k % 2 ? 'flow' : 'stretch', 0.06); return; }
+        var m = k % 5;
+        if (m === 0 || m === 1 || m === 4) {
+          addProp(F, s.x, 0, s.z, 0, 1.0, 0.28, 2.3, 0x94A3B8); addProp(F, s.x, 0, s.z - 1.05, 0, 0.8, 1.0, 0.12, 0x64748B); station(s.x, s.z, Math.PI, 'run', 0.22);
+        } else if (m === 2) { addProp(F, s.x, 0, s.z + 0.95, 0, 1.7, 1.6, 0.3, 0x94A3B8); station(s.x, s.z, Math.PI, 'press', 0); }
+        else { addProp(F, s.x, 0, s.z + 0.85, 0, 1.3, 0.8, 0.4, 0x94A3B8); station(s.x, s.z, Math.PI, 'curl', 0); }
+      });
+    } else if (kind === 'cafe') {
+      gridSpots(poly, b, 4.6, 2.0).forEach(function (s) {
+        addProp(F, s.x, 0, s.z, 0, 1.1, 0.95, 1.1, 0xB08968);
+        addProp(F, s.x - 1.15, 0, s.z, 0, 0.7, 0.55, 0.7, 0x475569); station(s.x - 1.15, s.z, Math.PI / 2, 'sit', -0.94);
+        addProp(F, s.x + 1.15, 0, s.z, 0, 0.7, 0.55, 0.7, 0x475569); station(s.x + 1.15, s.z, -Math.PI / 2, 'sit', -0.94);
+      });
+    } else if (kind === 'climb') {
+      var wz = b.minZ + 0.3, w = (b.maxX - b.minX) * 0.92;
+      addProp(F, cx, 0, wz - 0.2, 0, w, 8.8, 0.4, 0x94A3B8);
+      for (var h = 0; h < 40; h++) addProp(F, cx + (Math.random() - 0.5) * (w - 1), 0.6 + Math.random() * 7.6, wz + 0.1, 0, 0.4, 0.26, 0.22, pick([0xF97316, 0x0EA5E9, 0xBE185D, 0x7C3AED, 0xE2E8F0, 0x14B8A6]));
+      c.wallZ = wz;
+    } else if (kind === 'pool') {
+      c.axis = (b.maxX - b.minX) >= (b.maxZ - b.minZ) ? 'x' : 'z';
+      var lo = c.axis === 'x' ? b.minX : b.minZ, hi = c.axis === 'x' ? b.maxX : b.maxZ, olo = c.axis === 'x' ? b.minZ : b.minX, ohi = c.axis === 'x' ? b.maxZ : b.maxX;
+      c.loA = lo + 1.4; c.hiA = hi - 1.4; c.nl = Math.max(2, Math.floor((ohi - olo - 2) / 2.6)); c.olo = olo + 1.3; c.ostep = (ohi - olo - 2.6) / c.nl;
     }
-    crowds.push({ floor: F.n, zone: zone, factor: factor || 1, style: style, list: list, active: 0, spot: spot });
+
+    // class rooms: participants stand on a grid facing the front (north); the instructor stands at the front facing them
+    var slots = [];
+    if (kind === 'class') {
+      slots = gridSpots(poly, b, 3.2, 1.4); var fx = cx, fz = b.minZ + 1.6;
+      slots = slots.filter(function (s) { return s.z > fz + 2.4; }).sort(function (a, z) { return Math.hypot(a.x - fx, a.z - fz) - Math.hypot(z.x - fx, z.z - fz); });
+      n = Math.max(3, Math.min(style.max, slots.length + 1));
+      c.fx = fx; c.fz = fz;
+    }
+    var climbSlots = [];
+    if (kind === 'climb') { for (var x = b.minX + 2; x <= b.maxX - 2; x += 4) climbSlots.push(x); }
+    var classAct = /group_ex/.test(id) ? 'jacks' : /mind_body/.test(id) ? 'flow' : /multipurpose/.test(id) ? 'stretch' : 'bike';
+    if (kind === 'class' && classAct === 'bike') {
+      slots.forEach(function (s) { addProp(F, s.x, 0, s.z - 0.5, 0, 0.45, 1.0, 1.2, 0x64748B); });
+      addProp(F, c.fx, 0, c.fz - 0.5, 0, 0.45, 1.0, 1.2, 0x64748B);
+    }
+
+    for (var i = 0; i < n; i++) {
+      var p = makePerson(F), s0 = spot(), t0 = spot();
+      p.x = s0.x; p.z = s0.z; p.tx = t0.x; p.tz = t0.z; p.speed = style.speed * (0.75 + Math.random() * 0.5); p.wait = Math.random() * style.pause;
+      if (kind === 'gym' || kind === 'mats') p.wantStn = i % 4 !== 3;
+      if (kind === 'cafe') p.wantStn = i % 5 < 3;
+      if (kind === 'class') {
+        p.fixed = true; p.act = classAct; p.dur = 1e9; p.baseLift = 0;
+        if (i === 0) { p.x = c.fx; p.z = c.fz; p.heading = 0; } else { var sl = slots[i - 1]; p.x = sl.x; p.z = sl.z; p.heading = Math.PI; }
+      } else if (kind === 'climb' && i < climbSlots.length) {
+        p.fixed = true; p.act = 'climb'; p.dur = 1e9; p.x = climbSlots[i]; p.z = c.wallZ + 0.75; p.heading = Math.PI; p.cy = 0.2 + Math.random() * 4.5; p.cd = Math.random() < 0.5 ? 1 : -1;
+      } else if (kind === 'pool' && (i % 10 < (/multi/.test(id) ? 5 : 7))) {
+        p.fixed = true; p.act = 'swim'; p.dur = 1e9; p.speed = 1.0 + Math.random() * 0.7; p.sd = Math.random() < 0.5 ? 1 : -1;
+        var lane = c.olo + (i % c.nl + 0.5) * c.ostep; p.lane = lane;
+        var along = c.loA + Math.random() * (c.hiA - c.loA); if (c.axis === 'x') { p.x = along; p.z = lane; } else { p.z = along; p.x = lane; }
+        p.heading = c.axis === 'x' ? (p.sd > 0 ? Math.PI / 2 : -Math.PI / 2) : (p.sd > 0 ? 0 : Math.PI);
+      }
+      c.list.push(p);
+    }
+    crowds.push(c);
   }
 
   FLOORS.forEach(function (D) {
@@ -1582,9 +1844,9 @@
         var mesh = slab(F, px, 0.22, 0.1, zm, line);
         if (z.room) wall(F, px, true, 0, WALL_H, glass, soft, 0);
         var zo = addZone(F, z.id, z.name, mesh, zm, c);
-        addCrowd(F, px, zo, zoneStyle(z.id), 1);
+        addCrowd(F, px, zo, zoneStyle(z.id), 1, z.id);
       } else {
-        if (!z.noOutline) { outline(F, px, 0.06, soft); addCrowd(F, px, null, { per: 55, min: 2, max: 8, speed: 1.1, pause: 3 }, 0.8); }
+        if (!z.noOutline) { outline(F, px, 0.06, soft); addCrowd(F, px, null, { per: 55, min: 2, max: 8, speed: 1.1, pause: 3 }, 0.8, ''); }
         addLabel(z.name, c, '', F.n);
       }
     });
@@ -1604,7 +1866,7 @@
       var path = outer.map(function (o, i) { return W([(o[0] + inner[i][0]) / 2, (o[1] + inner[i][1]) / 2]); }), cum = [0];
       for (var i = 0; i < path.length; i++) cum.push(cum[i] + path[i].distanceTo(path[(i + 1) % path.length]));
       var list = [];
-      for (var r = 0; r < tr.max; r++) { var p = makePerson(F); p.mesh = p.g; p.d = Math.random() * cum[cum.length - 1]; p.v = tr.speed * (0.7 + Math.random() * 0.6); p.lane = (Math.random() - 0.5) * 2.4; list.push(p); }
+      for (var r = 0; r < tr.max; r++) { var p = makePerson(F); p.d = Math.random() * cum[cum.length - 1]; p.v = tr.speed * (0.7 + Math.random() * 0.6); p.lane = (Math.random() - 0.5) * 2.4; list.push(p); }
       runners.push({ zone: z, path: path, cum: cum, list: list, active: 0 });
     });
 
@@ -1623,6 +1885,7 @@
     var box = new THREE.Box3().setFromObject(F.group); F.centre = box.getCenter(new THREE.Vector3()); F.centre.y = F.y; F.size = box.getSize(new THREE.Vector3());
     var lp = new THREE.Vector3(box.min.x - 3, F.y + 1, F.centre.z);
     var fl = addLabel('Level ' + F.n, lp, 'floor', F.n); fl.el.addEventListener('click', function () { focus(F.n); });
+    finalizePeople(F);
   });
 
   // =====================================================================
@@ -1839,31 +2102,7 @@
       anim.t = Math.min(1, anim.t + dt / dur); var e = reduceMotion ? 1 : (anim.t < 0.5 ? 2 * anim.t * anim.t : 1 - Math.pow(-2 * anim.t + 2, 2) / 2);
       camera.position.lerpVectors(anim.p0, anim.p1, e); controls.target.lerpVectors(anim.g0, anim.g1, e); if (anim.t === 1) anim = null;
     }
-    runners.forEach(function (r) {
-      var total = r.cum[r.cum.length - 1];
-      r.list.forEach(function (rn, i) {
-        rn.mesh.visible = i < r.active; if (!rn.mesh.visible) return;
-        rn.d = (rn.d + rn.v * dt) % total; var j = 0; while (r.cum[j + 1] < rn.d) j++;
-        var a = r.path[j], b = r.path[(j + 1) % r.path.length], t = (rn.d - r.cum[j]) / (r.cum[j + 1] - r.cum[j]), nx = -(b.z - a.z), nz = b.x - a.x, nl = Math.hypot(nx, nz) || 1;
-        rn.mesh.position.set(a.x + (b.x - a.x) * t + nx / nl * rn.lane, FEET_Y, a.z + (b.z - a.z) * t + nz / nl * rn.lane);
-        turnTo(rn, Math.atan2(b.x - a.x, b.z - a.z), dt); stride(rn, true, rn.v, dt);
-        rn.mesh.position.y = FEET_Y + (rn.g.position.y - FEET_Y);
-      });
-    });
-    crowds.forEach(function (c) {
-      if (!built[c.floor].group.visible) return;
-      c.list.forEach(function (p, i) {
-        var show = i < c.active; if (p.g.visible !== show) p.g.visible = show; if (!show) return;
-        var moving = false;
-        if (p.wait > 0) p.wait -= dt;
-        else {
-          var dx = p.tx - p.x, dz = p.tz - p.z, d = Math.hypot(dx, dz);
-          if (d < 0.5) { var t = c.spot(); p.tx = t.x; p.tz = t.z; p.wait = c.style.pause * (0.4 + Math.random() * 1.2); }
-          else { var st = Math.min(d, p.speed * dt); p.x += dx / d * st; p.z += dz / d * st; moving = true; turnTo(p, Math.atan2(dx, dz), dt); }
-        }
-        p.g.position.x = p.x; p.g.position.z = p.z; stride(p, moving, p.speed, dt);
-      });
-    });
+    updatePeople(dt);
     controls.update(); renderer.render(scene, camera);
     var w = window.innerWidth, h = window.innerHeight;
     labels.forEach(function (l) {

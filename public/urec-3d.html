@@ -1467,6 +1467,87 @@
     mesh.userData.floor = F.n; pickables.push(mesh); return z;
   }
 
+  // =====================================================================
+  // People: small walking figures (torso + head + swinging legs).
+  // Three meshes per person, shared geometry, so a few hundred stay cheap.
+  // =====================================================================
+  var PERSON_SCALE = 1.25, FEET_Y = 0.3, crowds = [];
+  function mergeGeos(list) {
+    var pos = [];
+    list.forEach(function (g) { var n = g.index ? g.toNonIndexed() : g; Array.prototype.push.apply(pos, n.attributes.position.array); });
+    var m = new THREE.BufferGeometry(); m.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); m.computeBoundingSphere(); return m;
+  }
+  var bodyGeo = (function () {
+    var torso = new THREE.CylinderGeometry(0.34, 0.4, 0.8, 8); torso.translate(0, 1.26, 0);
+    var head = new THREE.SphereGeometry(0.25, 10, 8); head.translate(0, 1.9, 0);
+    var armL = new THREE.BoxGeometry(0.15, 0.66, 0.17); armL.translate(-0.52, 1.24, 0);
+    var armR = new THREE.BoxGeometry(0.15, 0.66, 0.17); armR.translate(0.52, 1.24, 0);
+    return mergeGeos([torso, head, armL, armR]);
+  })();
+  var legGeo = new THREE.BoxGeometry(0.24, 0.9, 0.26); legGeo.translate(0, -0.45, 0);   // pivots at the hip
+  var SHIRTS = [0x334155, 0x450084, 0x1E3A8A, 0x64748B, 0x7C3AED, 0x0F172A];
+  function personMats(F) {
+    if (!F.pm) {
+      F.pm = SHIRTS.map(function (c) { var m = mat(F, 'dot'); m.color.setHex(c); m.userData.base = 1; m.opacity = 1; m.depthWrite = true; return m; });
+      F.legMat = mat(F, 'dot'); F.legMat.color.setHex(0x1E293B); F.legMat.userData.base = 1; F.legMat.opacity = 1; F.legMat.depthWrite = true;
+    }
+    return F;
+  }
+  function makePerson(F) {
+    personMats(F);
+    var g = new THREE.Group(), body = new THREE.Mesh(bodyGeo, F.pm[Math.floor(Math.random() * F.pm.length)]);
+    var lL = new THREE.Mesh(legGeo, F.legMat), lR = new THREE.Mesh(legGeo, F.legMat);
+    lL.position.set(-0.14, 0.9, 0); lR.position.set(0.14, 0.9, 0);
+    g.add(body); g.add(lL); g.add(lR);
+    g.scale.setScalar(PERSON_SCALE * (0.9 + Math.random() * 0.2)); g.visible = false; F.group.add(g);
+    return { g: g, lL: lL, lR: lR, phase: Math.random() * 6.28, heading: Math.random() * 6.28 };
+  }
+  function stride(p, moving, speed, dt) {
+    var swing = 0, bob = 0;
+    if (moving) { p.phase += speed * dt * 2.4; swing = Math.sin(p.phase) * Math.min(0.85, 0.3 + speed * 0.18); bob = Math.abs(Math.sin(p.phase)) * 0.06; }
+    else { swing *= 0.5; }
+    p.lL.rotation.x = swing; p.lR.rotation.x = -swing; p.g.position.y = FEET_Y + bob;
+  }
+  function turnTo(p, target, dt) {
+    var diff = ((target - p.heading + Math.PI) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI) - Math.PI;
+    p.heading += diff * Math.min(1, dt * 8); p.g.rotation.y = p.heading;
+  }
+  function polyArea(poly) { var a = 0; for (var i = 0; i < poly.length; i++) { var p = poly[i], q = poly[(i + 1) % poly.length]; a += p.x * q.z - q.x * p.z; } return Math.abs(a) / 2; }
+  function inPoly(poly, x, z) {
+    var inside = false;
+    for (var i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      if ((poly[i].z > z) !== (poly[j].z > z) && x < (poly[j].x - poly[i].x) * (z - poly[i].z) / (poly[j].z - poly[i].z) + poly[i].x) inside = !inside;
+    }
+    return inside;
+  }
+  function zoneStyle(id) {
+    if (/pool/.test(id)) return { per: 70, min: 4, max: 16, speed: 0.8, pause: 3 };
+    if (/mac|forum|racquet/.test(id)) return { per: 55, min: 6, max: 22, speed: 2.3, pause: 0.4 };
+    if (/fitness|cardio|wellness|stretch/.test(id)) return { per: 45, min: 6, max: 22, speed: 0.9, pause: 5 };
+    if (/mind_body|group_ex|cycle|multipurpose/.test(id)) return { per: 28, min: 4, max: 14, speed: 0.7, pause: 8 };
+    if (/climbing|adventure/.test(id)) return { per: 40, min: 4, max: 14, speed: 0.8, pause: 4 };
+    return { per: 40, min: 4, max: 12, speed: 1.2, pause: 2.5 };
+  }
+  // People who wander around inside one area. zone = a coloured zone (headcount follows its occupancy),
+  // or null for ambient areas (lobby, offices...), which follow the floor's average at `factor`.
+  function addCrowd(F, px, zone, style, factor) {
+    var poly = px.map(W), cx = 0, cz = 0; poly.forEach(function (v) { cx += v.x; cz += v.z; }); cx /= poly.length; cz /= poly.length;
+    poly = poly.map(function (v) { return { x: cx + (v.x - cx) * 0.86, z: cz + (v.z - cz) * 0.86 }; });
+    var minX = 1e9, maxX = -1e9, minZ = 1e9, maxZ = -1e9;
+    poly.forEach(function (v) { minX = Math.min(minX, v.x); maxX = Math.max(maxX, v.x); minZ = Math.min(minZ, v.z); maxZ = Math.max(maxZ, v.z); });
+    function spot() {
+      for (var i = 0; i < 40; i++) { var x = minX + Math.random() * (maxX - minX), z = minZ + Math.random() * (maxZ - minZ); if (inPoly(poly, x, z)) return { x: x, z: z }; }
+      return { x: cx, z: cz };
+    }
+    var n = Math.max(style.min, Math.min(style.max, Math.round(polyArea(poly) / style.per))), list = [];
+    for (var i = 0; i < n; i++) {
+      var p = makePerson(F), s = spot(), t = spot();
+      p.x = s.x; p.z = s.z; p.tx = t.x; p.tz = t.z; p.speed = style.speed * (0.7 + Math.random() * 0.6); p.wait = Math.random() * style.pause;
+      p.g.position.set(p.x, FEET_Y, p.z); list.push(p);
+    }
+    crowds.push({ floor: F.n, zone: zone, factor: factor || 1, style: style, list: list, active: 0, spot: spot });
+  }
+
   FLOORS.forEach(function (D) {
     var F = { n: D.n, y: (D.n - 1) * FLOOR_H, group: new THREE.Group(), mats: [] };
     F.group.position.y = F.y; scene.add(F.group); built[D.n] = F;
@@ -1500,9 +1581,10 @@
         var zm = mat(F, 'zone');
         var mesh = slab(F, px, 0.22, 0.1, zm, line);
         if (z.room) wall(F, px, true, 0, WALL_H, glass, soft, 0);
-        addZone(F, z.id, z.name, mesh, zm, c);
+        var zo = addZone(F, z.id, z.name, mesh, zm, c);
+        addCrowd(F, px, zo, zoneStyle(z.id), 1);
       } else {
-        if (!z.noOutline) outline(F, px, 0.06, soft);
+        if (!z.noOutline) { outline(F, px, 0.06, soft); addCrowd(F, px, null, { per: 55, min: 2, max: 8, speed: 1.1, pause: 3 }, 0.8); }
         addLabel(z.name, c, '', F.n);
       }
     });
@@ -1521,8 +1603,8 @@
       // people moving round the track
       var path = outer.map(function (o, i) { return W([(o[0] + inner[i][0]) / 2, (o[1] + inner[i][1]) / 2]); }), cum = [0];
       for (var i = 0; i < path.length; i++) cum.push(cum[i] + path[i].distanceTo(path[(i + 1) % path.length]));
-      var dm = mat(F, 'dot'), dg = new THREE.SphereGeometry(0.32, 8, 6), list = [];
-      for (var r = 0; r < tr.max; r++) { var s = new THREE.Mesh(dg, dm); F.group.add(s); list.push({ mesh: s, d: Math.random() * cum[cum.length - 1], v: tr.speed * (0.7 + Math.random() * 0.6), lane: (Math.random() - 0.5) * 2.4 }); }
+      var list = [];
+      for (var r = 0; r < tr.max; r++) { var p = makePerson(F); p.mesh = p.g; p.d = Math.random() * cum[cum.length - 1]; p.v = tr.speed * (0.7 + Math.random() * 0.6); p.lane = (Math.random() - 0.5) * 2.4; list.push(p); }
       runners.push({ zone: z, path: path, cum: cum, list: list, active: 0 });
     });
 
@@ -1575,6 +1657,12 @@
       z.label.el.innerHTML = '<i class="dot" style="background:#' + c.getHexString() + '"></i>' + z.name + '<small>' + detail + '</small>';
     });
     runners.forEach(function (r) { r.active = Math.round(r.zone.occ * r.list.length); });
+    var sum = {}, cnt = {};
+    zones.forEach(function (z) { sum[z.floor] = (sum[z.floor] || 0) + z.occ; cnt[z.floor] = (cnt[z.floor] || 0) + 1; });
+    crowds.forEach(function (c) {
+      var o = c.zone ? c.zone.occ : (cnt[c.floor] ? sum[c.floor] / cnt[c.floor] : 0) * c.factor;
+      c.active = Math.round(o * c.list.length);
+    });
   }
   // Open at the current time (rounded to the slider's 15-minute steps, within opening hours)
   function nowSliderValue() {
@@ -1757,7 +1845,23 @@
         rn.mesh.visible = i < r.active; if (!rn.mesh.visible) return;
         rn.d = (rn.d + rn.v * dt) % total; var j = 0; while (r.cum[j + 1] < rn.d) j++;
         var a = r.path[j], b = r.path[(j + 1) % r.path.length], t = (rn.d - r.cum[j]) / (r.cum[j + 1] - r.cum[j]), nx = -(b.z - a.z), nz = b.x - a.x, nl = Math.hypot(nx, nz) || 1;
-        rn.mesh.position.set(a.x + (b.x - a.x) * t + nx / nl * rn.lane, 0.55, a.z + (b.z - a.z) * t + nz / nl * rn.lane);
+        rn.mesh.position.set(a.x + (b.x - a.x) * t + nx / nl * rn.lane, FEET_Y, a.z + (b.z - a.z) * t + nz / nl * rn.lane);
+        turnTo(rn, Math.atan2(b.x - a.x, b.z - a.z), dt); stride(rn, true, rn.v, dt);
+        rn.mesh.position.y = FEET_Y + (rn.g.position.y - FEET_Y);
+      });
+    });
+    crowds.forEach(function (c) {
+      if (!built[c.floor].group.visible) return;
+      c.list.forEach(function (p, i) {
+        var show = i < c.active; if (p.g.visible !== show) p.g.visible = show; if (!show) return;
+        var moving = false;
+        if (p.wait > 0) p.wait -= dt;
+        else {
+          var dx = p.tx - p.x, dz = p.tz - p.z, d = Math.hypot(dx, dz);
+          if (d < 0.5) { var t = c.spot(); p.tx = t.x; p.tz = t.z; p.wait = c.style.pause * (0.4 + Math.random() * 1.2); }
+          else { var st = Math.min(d, p.speed * dt); p.x += dx / d * st; p.z += dz / d * st; moving = true; turnTo(p, Math.atan2(dx, dz), dt); }
+        }
+        p.g.position.x = p.x; p.g.position.z = p.z; stride(p, moving, p.speed, dt);
       });
     });
     controls.update(); renderer.render(scene, camera);

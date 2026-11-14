@@ -12,7 +12,8 @@ import { useOverview } from '../hooks/useOverview'
 import { api } from '../services/api'
 import type { DayZoneReading } from '../data/types'
 import { busiestZonesAt } from '../utils/sync'
-import { formatHour, sliderNow, todayISODate } from '../utils/time'
+import { formatClock, sliderNow, todayISODate } from '../utils/time'
+import { useNow } from '../hooks/useNow'
 
 const QUICK_LINKS = [
   { to: '/map', label: '3D map', hint: 'See every zone', icon: MapIcon },
@@ -27,6 +28,7 @@ function greeting(): string {
 
 export function HomePage() {
   const { overview, loading } = useOverview()
+  const now = useNow()
   // Per-zone forecast for today: the same data the 3D map is coloured with
   const [day, setDay] = useState<DayZoneReading[]>([])
   useEffect(() => {
@@ -38,7 +40,7 @@ export function HomePage() {
       cancelled = true
     }
   }, [])
-  const mapZones = busiestZonesAt(day, sliderNow())
+  const mapZones = busiestZonesAt(day, sliderNow()) // re-read each tick, since `now` re-renders this page
   const busiest = mapZones.length > 0 ? mapZones : (overview?.busiestZones ?? [])
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
 
@@ -65,7 +67,7 @@ export function HomePage() {
               status={overview.status}
               occupancyPercent={overview.overallOccupancyPercent}
               headcount={overview.estimatedHeadcount}
-              hourLabel={formatHour(overview.currentHour)}
+              hourLabel={formatClock(now)}
             />
           )}
         </div>

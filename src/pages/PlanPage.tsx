@@ -78,36 +78,38 @@ export function PlanPage() {
   }
 
   return (
-    <div className="safe-top px-4 pb-4 pt-6 sm:px-6">
-      <header className="mb-6">
-        <h1 className="text-3xl font-extrabold tracking-tight text-ink">Best time to visit</h1>
-        <p className="mt-2 text-sm text-ink-muted">
-          Pick a day and workout style. We&apos;ll recommend a quieter simulated window.
+    <div className="page-shell safe-top">
+      <header className="mb-7">
+        <h1 className="page-title">Best time</h1>
+        <p className="page-subtitle">
+          Choose a day and workout style for a quieter simulated window.
         </p>
       </header>
 
       <div className="space-y-4">
         <section className="card-surface p-4 sm:p-5">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-ink-subtle">Day</p>
+          <p className="section-label mb-3">Day</p>
           <div className="flex items-center justify-between gap-3">
             <button
               type="button"
               onClick={() => setDate((d) => shiftDate(d, -1))}
-              className="rounded-xl p-2 text-ink-muted hover:bg-jmu-lavender hover:text-ink"
+              className="pressable rounded-full p-2.5 text-ink-muted hover:bg-jmu-lavender hover:text-ink"
               aria-label="Previous day"
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
             <div className="text-center">
-              <p className="text-lg font-bold text-ink">{formatDisplayDate(date)}</p>
+              <p className="text-[17px] font-semibold tracking-[-0.02em] text-ink">
+                {formatDisplayDate(date)}
+              </p>
               {date === todayISODate() && (
-                <p className="text-xs font-medium text-jmu-purple">Today</p>
+                <p className="mt-0.5 text-[12px] font-medium text-jmu-purple">Today</p>
               )}
             </div>
             <button
               type="button"
               onClick={() => setDate((d) => shiftDate(d, 1))}
-              className="rounded-xl p-2 text-ink-muted hover:bg-jmu-lavender hover:text-ink"
+              className="pressable rounded-full p-2.5 text-ink-muted hover:bg-jmu-lavender hover:text-ink"
               aria-label="Next day"
             >
               <ChevronRight className="h-5 w-5" />
@@ -116,9 +118,7 @@ export function PlanPage() {
         </section>
 
         <section className="card-surface p-4 sm:p-5">
-          <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-ink-subtle">
-            Workout preference
-          </p>
+          <p className="section-label mb-3">Preference</p>
           <WorkoutPreferenceSelector value={preference} onChange={setPreference} />
         </section>
 
@@ -148,7 +148,7 @@ export function PlanPage() {
                 <button
                   type="button"
                   onClick={handleSave}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-jmu-purple py-3 text-sm font-semibold text-white transition hover:bg-jmu-purple-dark"
+                  className="pressable inline-flex w-full items-center justify-center gap-2 rounded-[14px] bg-jmu-purple py-3 text-[14px] font-semibold text-white transition-colors hover:bg-jmu-purple-dark"
                 >
                   {savedFlash ? (
                     <>

@@ -7,26 +7,24 @@ export function SavedPage() {
   const { plans, remove } = useSavedPlans()
 
   return (
-    <div className="safe-top px-4 pb-4 pt-6 sm:px-6">
-      <header className="mb-6">
-        <h1 className="text-3xl font-extrabold tracking-tight text-ink">Saved plans</h1>
-        <p className="mt-2 text-sm text-ink-muted">
-          Workout windows you&apos;ve saved. Stored on this device.
-        </p>
+    <div className="page-shell safe-top">
+      <header className="mb-7">
+        <h1 className="page-title">Saved</h1>
+        <p className="page-subtitle">Workout windows stored on this device.</p>
       </header>
 
       {plans.length === 0 ? (
-        <div className="card-surface flex flex-col items-center px-6 py-14 text-center">
-          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-jmu-lavender text-jmu-purple">
-            <Bookmark className="h-6 w-6" />
+        <div className="card-surface flex flex-col items-center px-6 py-16 text-center">
+          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-[14px] bg-jmu-lavender text-jmu-purple">
+            <Bookmark className="h-5 w-5" strokeWidth={2} />
           </div>
-          <h2 className="text-lg font-semibold text-ink">No saved plans yet</h2>
-          <p className="mt-2 max-w-xs text-sm text-ink-muted">
-            Build a recommendation on the Plan page and tap Save Plan to keep it here.
+          <h2 className="text-[17px] font-semibold tracking-[-0.02em] text-ink">No plans yet</h2>
+          <p className="mt-1.5 max-w-[16rem] text-[14px] leading-relaxed text-ink-muted">
+            Save a recommendation from Plan to keep it here.
           </p>
           <Link
             to="/plan"
-            className="mt-6 rounded-2xl bg-jmu-purple px-5 py-3 text-sm font-semibold text-white hover:bg-jmu-purple-dark"
+            className="pressable mt-6 rounded-[14px] bg-jmu-purple px-5 py-3 text-[14px] font-semibold text-white hover:bg-jmu-purple-dark"
           >
             Find a time
           </Link>

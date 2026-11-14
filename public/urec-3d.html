@@ -1576,6 +1576,12 @@
     });
     runners.forEach(function (r) { r.active = Math.round(r.zone.occ * r.list.length); });
   }
+  // Open at the current time (rounded to the slider's 15-minute steps, within opening hours)
+  function nowSliderValue() {
+    var nowH = new Date().getHours() + new Date().getMinutes() / 60;
+    return String(Math.max(6, Math.min(23, Math.round(nowH * 4) / 4)));
+  }
+  slider.value = nowSliderValue();
   slider.addEventListener('input', applyTime); applyTime();
   function syncNowBtn() {
     var nowH = new Date().getHours() + new Date().getMinutes() / 60;
@@ -1585,8 +1591,7 @@
     btn.classList.toggle('is-now', isNow);
   }
   document.getElementById('now').addEventListener('click', function () {
-    var nowH = new Date().getHours() + new Date().getMinutes() / 60;
-    slider.value = String(Math.max(6, Math.min(23, Math.round(nowH * 4) / 4)));
+    slider.value = nowSliderValue();
     applyTime(); syncNowBtn();
   });
   slider.addEventListener('input', syncNowBtn); syncNowBtn();

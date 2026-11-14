@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AppLayout } from './components/layout/AppLayout'
+import { ExplorePage } from './pages/ExplorePage'
 import { HomePage } from './pages/HomePage'
 import { PlanPage } from './pages/PlanPage'
 import { SavedPage } from './pages/SavedPage'
@@ -32,6 +33,7 @@ export default function App() {
             }
           />
           <Route path="plan" element={<PlanPage />} />
+          <Route path="explore" element={<ExplorePage />} />
           <Route path="saved" element={<SavedPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

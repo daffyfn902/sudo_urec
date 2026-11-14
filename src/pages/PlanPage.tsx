@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Check, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Check, ChevronLeft, ChevronRight, Compass } from 'lucide-react'
 import { WorkoutPreferenceSelector } from '../components/ui/WorkoutPreferenceSelector'
 import { ForecastChart } from '../components/ui/ForecastChart'
 import { RecommendationCard } from '../components/ui/RecommendationCard'
@@ -166,6 +167,23 @@ export function PlanPage() {
               height={170}
               highlightHour={forecast.recommendedWindow.startHour}
             />
+
+            <Link
+              to="/explore"
+              className="pressable card-surface flex items-center gap-3 px-4 py-4 transition-colors hover:border-border-strong hover:bg-jmu-lavender/30"
+            >
+              <span className="flex h-9 w-9 items-center justify-center rounded-[12px] bg-jmu-lavender text-jmu-purple">
+                <Compass className="h-4 w-4" aria-hidden />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[14px] font-semibold tracking-[-0.02em] text-ink">
+                  Explore Something New
+                </p>
+                <p className="mt-0.5 text-[12px] text-ink-muted">
+                  Discover a beginner-friendly challenge in another zone
+                </p>
+              </div>
+            </Link>
           </>
         )}
       </div>

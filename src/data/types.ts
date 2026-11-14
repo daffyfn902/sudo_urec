@@ -110,3 +110,48 @@ export interface ApiService {
   getZones(): Promise<GymZone[]>
   getScenarios(): Promise<ScenarioKnobs[]>
 }
+
+/** Explore Something New */
+export type ComfortLevel = 'getting-started' | 'ready-different' | 'push-me'
+
+export type ChallengeInterest = 'strength' | 'cardio' | 'sports' | 'surprise'
+
+export type ChallengeCategory = 'strength' | 'cardio' | 'sports'
+
+export type ChallengeDifficulty = 'easy' | 'moderate' | 'stretch'
+
+export interface Challenge {
+  id: string
+  title: string
+  description: string
+  category: ChallengeCategory
+  difficulty: ChallengeDifficulty
+  durationMinutes: number
+  zoneId: string
+  steps: [string, string, string]
+  beginnerFriendly: boolean
+}
+
+export interface ChallengeProgress {
+  completedIds: string[]
+  exploredZoneIds: string[]
+  lastCompletedAt?: string
+}
+
+export interface ExplorePreferences {
+  comfort: ComfortLevel
+  interest: ChallengeInterest
+}
+
+export interface RankedChallenge {
+  challenge: Challenge
+  score: number
+  crowdStatus: TrafficStatus
+  crowdOccupancyPercent: number
+  reasons: string[]
+}
+
+export interface MapChallengePreview {
+  challengeId: string
+  zoneId: string
+}

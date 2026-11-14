@@ -1,0 +1,13 @@
+{
+  "_note": "Default knob values per week type. The simulator varies these day to day; text_to_knobs starts from these and adjusts.",
+  "presets": [
+    { "week_type": "regular",            "label": "Regular week",           "students_on_campus": 1.0,  "academic_stress": 0.2, "novelty": 0.05, "weather": "clear", "event_load": 0.3 },
+    { "week_type": "first_week",         "label": "First week of classes",  "students_on_campus": 1.0,  "academic_stress": 0.0, "novelty": 1.0,  "weather": "clear", "event_load": 0.2 },
+    { "week_type": "midterms",           "label": "Midterms",               "students_on_campus": 1.0,  "academic_stress": 0.6, "novelty": 0.0,  "weather": "clear", "event_load": 0.2 },
+    { "week_type": "finals",             "label": "Finals week",            "students_on_campus": 0.85, "academic_stress": 1.0, "novelty": 0.0,  "weather": "clear", "event_load": 0.0 },
+    { "week_type": "thanksgiving_break", "label": "Thanksgiving break",     "students_on_campus": 0.15, "academic_stress": 0.0, "novelty": 0.0,  "weather": "clear", "event_load": 0.0 },
+    { "week_type": "winter_break",       "label": "Winter break",           "students_on_campus": 0.1,  "academic_stress": 0.0, "novelty": 0.0,  "weather": "clear", "event_load": 0.0 },
+    { "week_type": "post_new_year",      "label": "First weeks after New Year's", "students_on_campus": 1.0, "academic_stress": 0.05, "novelty": 0.85, "weather": "clear", "event_load": 0.2 },
+    { "week_type": "spring_break",       "label": "Spring break",           "students_on_campus": 0.15, "academic_stress": 0.0, "novelty": 0.0,  "weather": "clear", "event_load": 0.0 }
+  ]
+}

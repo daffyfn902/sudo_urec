@@ -1,0 +1,34 @@
+{
+  "_note": "Single source of truth for UREC crowd zones. Ids match the live zones in public/urec-3d.html. Capacities and open hours are estimates, not official UREC figures.",
+  "categories": ["weights", "cardio", "courts", "track", "pool", "classes", "climbing", "other"],
+  "zones": [
+    { "id": "L1_adventure",     "name": "Adventure Center",     "floor": 1, "category": "other",    "capacity": 20,  "hours": { "weekday": [10, 18], "weekend": [10, 16] } },
+    { "id": "L1_racquetball",   "name": "Racquetball & Squash", "floor": 1, "category": "courts",   "capacity": 16,  "hours": { "weekday": [6, 23],  "weekend": [8, 22] } },
+    { "id": "L1_cafe",          "name": "UREC Café",            "floor": 1, "category": "other",    "capacity": 40,  "hours": { "weekday": [8, 20],  "weekend": [10, 18] } },
+    { "id": "L1_climbing",      "name": "Climbing Wall",        "floor": 1, "category": "climbing", "capacity": 30,  "hours": { "weekday": [12, 22], "weekend": [12, 20] } },
+    { "id": "L1_lockers",       "name": "Locker Rooms",         "floor": 1, "category": "other",    "capacity": 80,  "hours": { "weekday": [6, 23],  "weekend": [8, 22] } },
+    { "id": "L1_main_pool",     "name": "Main Pool",            "floor": 1, "category": "pool",     "capacity": 60,  "hours": { "weekday": [6, 21],  "weekend": [10, 20] } },
+    { "id": "L1_multi_pool",    "name": "Multi-Activity Pool",  "floor": 1, "category": "pool",     "capacity": 40,  "hours": { "weekday": [11, 21], "weekend": [10, 20] } },
+
+    { "id": "L2_mac3",          "name": "MAC 3",                "floor": 2, "category": "courts",   "capacity": 60,  "hours": { "weekday": [6, 23],  "weekend": [8, 22] } },
+    { "id": "L2_mac2",          "name": "MAC 2",                "floor": 2, "category": "courts",   "capacity": 60,  "hours": { "weekday": [6, 23],  "weekend": [8, 22] } },
+    { "id": "L2_mac1",          "name": "MAC 1",                "floor": 2, "category": "courts",   "capacity": 60,  "hours": { "weekday": [6, 23],  "weekend": [8, 22] } },
+    { "id": "L2_fitness",       "name": "Fitness Center",       "floor": 2, "category": "weights",  "capacity": 150, "hours": { "weekday": [6, 23],  "weekend": [8, 22] } },
+    { "id": "L2_forum2",        "name": "Sports Forum 2",       "floor": 2, "category": "courts",   "capacity": 45,  "hours": { "weekday": [6, 23],  "weekend": [8, 22] } },
+    { "id": "L2_forum1",        "name": "Sports Forum 1",       "floor": 2, "category": "courts",   "capacity": 45,  "hours": { "weekday": [6, 23],  "weekend": [8, 22] } },
+    { "id": "L2_racquetball",   "name": "Racquetball",          "floor": 2, "category": "courts",   "capacity": 12,  "hours": { "weekday": [6, 23],  "weekend": [8, 22] } },
+    { "id": "L2_wellness",      "name": "Wellness Center",      "floor": 2, "category": "other",    "capacity": 20,  "hours": { "weekday": [9, 18],  "weekend": [12, 16] } },
+
+    { "id": "L3_mind_body_2",   "name": "Mind/Body 2",          "floor": 3, "category": "classes",  "capacity": 25,  "hours": { "weekday": [6, 22],  "weekend": [9, 18] } },
+    { "id": "L3_mind_body_1",   "name": "Mind/Body 1",          "floor": 3, "category": "classes",  "capacity": 30,  "hours": { "weekday": [6, 22],  "weekend": [9, 18] } },
+    { "id": "L3_group_ex_2",    "name": "Group Exercise 2",     "floor": 3, "category": "classes",  "capacity": 40,  "hours": { "weekday": [6, 22],  "weekend": [9, 18] } },
+    { "id": "L3_cycle",         "name": "Group Cycle",          "floor": 3, "category": "classes",  "capacity": 35,  "hours": { "weekday": [6, 22],  "weekend": [9, 18] } },
+    { "id": "L3_group_ex_1",    "name": "Group Exercise 1",     "floor": 3, "category": "classes",  "capacity": 45,  "hours": { "weekday": [6, 22],  "weekend": [9, 18] } },
+    { "id": "L3_multipurpose",  "name": "Multi-Purpose",        "floor": 3, "category": "classes",  "capacity": 30,  "hours": { "weekday": [6, 22],  "weekend": [9, 18] } },
+    { "id": "L3_cardio_deck",   "name": "Cardio Deck",          "floor": 3, "category": "cardio",   "capacity": 90,  "hours": { "weekday": [6, 23],  "weekend": [8, 22] } },
+    { "id": "L3_walking_track", "name": "Walking Track",        "floor": 3, "category": "track",    "capacity": 40,  "hours": { "weekday": [6, 23],  "weekend": [8, 22] } },
+
+    { "id": "L4_stretch",       "name": "Stretching Area",      "floor": 4, "category": "other",    "capacity": 25,  "hours": { "weekday": [6, 23],  "weekend": [8, 22] } },
+    { "id": "L4_track",         "name": "Running Track",        "floor": 4, "category": "track",    "capacity": 60,  "hours": { "weekday": [6, 23],  "weekend": [8, 22] } }
+  ]
+}

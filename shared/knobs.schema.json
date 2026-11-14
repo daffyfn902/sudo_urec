@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "comfort-zone/knobs.schema.json",
+  "title": "ScenarioKnobs",
+  "description": "Observable context for one day at UREC. Produced by presets or text_to_knobs, consumed by the simulator and as forecaster features. Simulator internals (curves, zone quirks, noise, peak timing) are deliberately NOT knobs.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["week_type", "students_on_campus", "academic_stress", "novelty", "weather", "event_load"],
+  "properties": {
+    "week_type": {
+      "description": "Label for UI and presets. The forecaster should use the numeric knobs, not this label.",
+      "enum": ["regular", "first_week", "midterms", "finals", "thanksgiving_break", "winter_break", "post_new_year", "spring_break"]
+    },
+    "students_on_campus": {
+      "description": "Share of the student body around campus (breaks are about 0.1 to 0.2).",
+      "type": "number", "minimum": 0, "maximum": 1
+    },
+    "academic_stress": {
+      "description": "Exam and workload pressure. Midterms about 0.6, finals about 1.0. Higher stress pushes visits later in the day.",
+      "type": "number", "minimum": 0, "maximum": 1
+    },
+    "novelty": {
+      "description": "New-semester or resolution energy. High in first_week and post_new_year, then decays.",
+      "type": "number", "minimum": 0, "maximum": 1
+    },
+    "weather": {
+      "description": "Harrisonburg weather that day. Rain pushes people indoors; snow keeps them home; hot fills the pools.",
+      "enum": ["clear", "rain", "snow", "hot"]
+    },
+    "event_load": {
+      "description": "Intramurals, tournaments or club events in the evening. Mostly loads the courts.",
+      "type": "number", "minimum": 0, "maximum": 1
+    }
+  }
+}

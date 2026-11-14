@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Generated synthetic data (regenerate with: python -m sim.generate)
+data/synthetic/
+__pycache__/

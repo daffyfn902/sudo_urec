@@ -34,5 +34,6 @@ models/*.joblib
 data/postgres/
 data/postgres.log
 
+# Vercel CLI link and pulled environment (project id, tokens): never commit
 .vercel
 .env*

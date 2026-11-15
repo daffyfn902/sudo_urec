@@ -17,13 +17,17 @@ from datetime import date, datetime, timedelta
 import httpx
 from pydantic import ValidationError
 
+import clock
 from sim.academic_calendar import AcademicYear   # public JMU calendar, not simulator internals
 
 from .schema import (EVENT_LOAD, TIME_WINDOWS, ZONE_CATEGORY, ZONE_IDS, ZONE_NAMES, Extraction, Request,
                      extraction_json_schema)
 
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
-DEFAULT_MODEL = os.environ.get("OLLAMA_MODEL", "gemma3:4b")
+# vercel-deploy branch: the language model is OFF by default, because the hosted demo has no Ollama.
+# Questions are answered by the keyword rules alone. Set OLLAMA_MODEL=gemma3:4b to switch it back on locally.
+_model = os.environ.get("OLLAMA_MODEL", "off").strip()
+DEFAULT_MODEL: str | None = None if _model.lower() in ("", "off", "none", "0", "false") else _model
 # How long Ollama keeps the model in GPU memory after a request. -1 = until Ollama stops, so a quiet
 # stretch never forces a slow reload (gemma3:4b holds about 3 GB of VRAM). Set e.g. "30m" to free it.
 _keep = os.environ.get("OLLAMA_KEEP_ALIVE", "-1")
@@ -193,8 +197,10 @@ def warm_up(model: str = DEFAULT_MODEL) -> None:
     httpx.post(f"{OLLAMA_URL}/api/generate", timeout=300, json={"model": model, "keep_alive": KEEP_ALIVE}).raise_for_status()
 
 
-def ollama_status(model: str = DEFAULT_MODEL) -> dict:
+def ollama_status(model: str | None = DEFAULT_MODEL) -> dict:
     """Live check: is Ollama up, is the model installed, and is it loaded in memory right now?"""
+    if not model:
+        return {"state": "disabled", "detail": "language model switched off (OLLAMA_MODEL=off): keyword rules only"}
     try:
         loaded = httpx.get(f"{OLLAMA_URL}/api/ps", timeout=3).json().get("models", [])
         names = {m.get("name") for m in loaded} | {m.get("model") for m in loaded}
@@ -242,7 +248,7 @@ def keyword_extract(text: str, today: date | None = None) -> tuple[Extraction, b
     fields the text states outright (a weekday, "tonight", "at 6", a date, a named room...).
     """
     t = text.lower()
-    today = today or date.today()
+    today = today or clock.today()
     has = lambda p: re.search(p, t) is not None
     if not has(GYM_WORDS):
         return Extraction(intent="unknown"), False, set()
@@ -367,7 +373,7 @@ def merge(llm: Extraction, kw: Extraction, recognised: bool, explicit: set[str])
 def parse_request(text: str, today: date | None = None, now_hour: int | None = None,
                   model: str | None = DEFAULT_MODEL, timeout: float = 30) -> Request:
     """model=None skips the LLM and uses keywords only."""
-    now = datetime.now()
+    now = clock.now()
     today = today or now.date()
     now_hour = now.hour if now_hour is None else now_hour
     kw, recognised, explicit = keyword_extract(text, today)

@@ -13,19 +13,25 @@ import sys
 from datetime import date
 from functools import lru_cache
 
-import joblib
 import numpy as np
 import pandas as pd
 
 from .features import NUMERIC_KNOBS, ROOT, SHARED, WEATHERS, day_grid, make_features, traffic_status
 
 MODEL_PATH = ROOT / "models" / "forecaster.joblib"
+TREES_PATH = ROOT / "models" / "forecaster_trees.npz"
 
 
 @lru_cache(maxsize=1)
 def load_model():
+    """The exported numpy trees when present (no LightGBM needed: what the hosted demo uses), otherwise the
+    LightGBM model. Both give the same predictions; `python -m ml.trees` re-exports after retraining."""
+    if TREES_PATH.exists():
+        from .trees import TreeModel
+        return TreeModel(TREES_PATH)
     if not MODEL_PATH.exists():
         raise FileNotFoundError(f"{MODEL_PATH} not found: run `python -m ml.train` first")
+    import joblib
     return joblib.load(MODEL_PATH)
 
 

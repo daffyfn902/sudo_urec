@@ -45,6 +45,8 @@ def main() -> None:
     model = fit_lgb(final_rows)
     MODELS.mkdir(exist_ok=True)
     joblib.dump(model, MODELS / "forecaster.joblib")
+    from .trees import export
+    export()                                   # numpy copy used by the hosted demo (models/forecaster_trees.npz)
     meta = {
         "trained_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "trained_on": sorted(final_rows["academic_year"].astype(str).unique().tolist()),

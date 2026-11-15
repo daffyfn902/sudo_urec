@@ -1,0 +1,10 @@
+# Not needed by the hosted demo
+mobile/
+reports/
+data/synthetic/
+data/postgres/
+data/postgres.log
+data/sample/
+/*.jpg
+/urec-3d.html
+models/*.joblib

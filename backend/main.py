@@ -25,6 +25,8 @@ from llm.parse import (DEFAULT_MODEL, KEEP_ALIVE, OLLAMA_URL, WEEK_WORDS, ollama
                        upcoming_finals, warm_up)
 from ml.predict import load_model
 
+import clock
+
 from . import core, db, social
 
 _warming = threading.Event()     # set while a background model load is running
@@ -52,7 +54,8 @@ def _warm_in_background() -> bool:
 async def lifespan(_: FastAPI):
     load_model()                 # about 3 s, so the first request isn't slow
     core.readings()              # load the live-year readings
-    _warm_in_background()
+    if DEFAULT_MODEL:          # skipped when the language model is switched off
+        _warm_in_background()
     yield
 
 
@@ -176,7 +179,7 @@ def reading(body: ReadingIn) -> dict:
     """Record a live headcount for one real zone (e.g. from a camera)."""
     if body.zone_id not in core._CAPACITY:
         raise HTTPException(404, f"unknown real zone {body.zone_id!r}")
-    ts = body.timestamp or datetime.now()
+    ts = body.timestamp or clock.now()
     core.readings().put(ts.date(), ts.hour, body.zone_id, min(body.headcount, core._CAPACITY[body.zone_id]))
     return {"ok": True, "zone_id": body.zone_id, "date": ts.date().isoformat(), "hour": ts.hour}
 
@@ -185,6 +188,7 @@ def reading(body: ReadingIn) -> dict:
 def calendar() -> dict:
     """Today's week type and the next finals dates."""
     from llm.answer import week_type_for
-    start, end = upcoming_finals(date.today())
-    return {"today": date.today().isoformat(), "week_type": week_type_for(date.today()),
+    today = clock.today()
+    start, end = upcoming_finals(today)
+    return {"today": today.isoformat(), "week_type": week_type_for(today),
             "next_finals": [start.isoformat(), end.isoformat()]}

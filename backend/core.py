@@ -13,6 +13,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+import clock
+
 from llm.answer import WEEK_LABEL, day_knobs
 from ml.features import traffic_status
 from ml.predict import predict_day
@@ -41,11 +43,11 @@ def status(pct: float) -> str:
 
 
 def current_hour() -> int:
-    return min(max(datetime.now().hour, OPEN_HOUR), CLOSE_HOUR - 1)
+    return min(max(clock.now().hour, OPEN_HOUR), CLOSE_HOUR - 1)
 
 
 def parse_date(s: str | None) -> date:
-    return date.fromisoformat(s) if s else date.today()
+    return date.fromisoformat(s) if s else clock.today()
 
 
 # --------------------------------------------------------------------------------------------
@@ -161,15 +163,41 @@ def app_capacity(app_zone: str) -> int:
 # Live readings: the simulator's 2026-27 "actual" headcounts stand in for a sensor. POST /api/reading
 # (e.g. the computer-vision stretch goal) writes into the same store.
 # --------------------------------------------------------------------------------------------
+LIVE_READINGS = ROOT / "data" / "live" / "readings_2026-27.csv.gz"
+
+
+def export_live_readings() -> None:
+    """Copy the 2026-27 headcounts out of the full dataset into a small CSV for the hosted demo, which has
+    neither the full dataset (not in git) nor pyarrow.  `python -c "from backend.core import export_live_readings as e; e()"`"""
+    df = pd.read_parquet(ROOT / "data" / "synthetic" / "urec_hourly.parquet",
+                         columns=["timestamp", "zone_id", "headcount", "academic_year"])
+    df = df[(df["academic_year"] == "2026-27") & (df["headcount"] > 0)]
+    LIVE_READINGS.parent.mkdir(parents=True, exist_ok=True)
+    df[["timestamp", "zone_id", "headcount"]].to_csv(LIVE_READINGS, index=False, compression="gzip")
+
+
 class Readings:
     def __init__(self) -> None:
         self.store: dict[tuple[date, int, str], int] = {}
         path = ROOT / "data" / "synthetic" / "urec_hourly.parquet"
+        df = None
         if path.exists():
-            df = pd.read_parquet(path, columns=["timestamp", "zone_id", "headcount", "academic_year"])
-            df = df[df["academic_year"] == "2026-27"]
-            for ts, z, hc in zip(df["timestamp"], df["zone_id"].astype(str), df["headcount"]):
-                self.store[(ts.date(), ts.hour, z)] = int(hc)
+            try:
+                df = pd.read_parquet(path, columns=["timestamp", "zone_id", "headcount", "academic_year"])
+                df = df[df["academic_year"] == "2026-27"]
+            except ImportError:                # no pyarrow (slim install): use the CSV below
+                df = None
+        if df is not None:
+            pass
+        elif LIVE_READINGS.exists():           # hosted demo: no full dataset, no pyarrow
+            df = pd.read_csv(LIVE_READINGS, parse_dates=["timestamp"])
+            self.zero_fill = True
+        else:
+            return
+        for ts, z, hc in zip(df["timestamp"], df["zone_id"].astype(str), df["headcount"]):
+            self.store[(ts.date(), ts.hour, z)] = int(hc)
+
+    zero_fill = False   # the CSV leaves out zero headcounts to stay small; a missing open zone then means 0
 
     def put(self, d: date, hour: int, zone_id: str, headcount: int) -> None:
         self.store[(d, hour, zone_id)] = headcount
@@ -179,6 +207,8 @@ class Readings:
         df = day_frame(d, None)
         df = df[df["hour"] == hour].copy()
         vals = [self.store.get((d, hour, z)) for z in df["zone_id"]]
+        if self.zero_fill and any(v is not None for v in vals):
+            vals = [0 if v is None else v for v in vals]      # covered hour: missing means nobody there
         if any(v is None for v, o in zip(vals, df["is_open"]) if o):
             return None
         df["expected_headcount"] = [v or 0 for v in vals]
@@ -201,7 +231,7 @@ def readings() -> Readings:
 # --------------------------------------------------------------------------------------------
 def overview(d: date, hour: int, scenario_id: str | None) -> dict:
     """GymOverview. Uses live readings for today's current hour when there's no what-if scenario."""
-    use_reading = scenario_id in (None, "normal") and d == date.today() and hour == current_hour()
+    use_reading = scenario_id in (None, "normal") and d == clock.today() and hour == current_hour()
     frame = readings().frame(d, hour) if use_reading else None
     source = "reading" if frame is not None else "forecast"
     if frame is None:
@@ -239,8 +269,8 @@ def zone_occupancy(d: date, hour: int, scenario_id: str | None) -> list[dict]:
 
 def candidate_hours(d: date) -> list[int]:
     hrs = [h for h in HOURS if OPEN_HOUR + 1 <= h <= CLOSE_HOUR - 3]
-    if d == date.today():
-        later = [h for h in hrs if h >= datetime.now().hour]
+    if d == clock.today():
+        later = [h for h in hrs if h >= clock.now().hour]
         hrs = later or hrs
     return hrs
 

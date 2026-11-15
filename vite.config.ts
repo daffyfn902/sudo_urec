@@ -13,4 +13,10 @@ export default defineConfig({
       '/api': 'http://localhost:8000',
     },
   },
+  // `npm run preview` serves the production build the same way (Vercel routes /api to the backend itself)
+  preview: {
+    proxy: {
+      '/api': 'http://localhost:8000',
+    },
+  },
 })

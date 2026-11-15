@@ -38,7 +38,9 @@ DB_USER, DB_NAME = "comfort", "comfort_zone"
 DB_PASSWORD = "comfort"     # local demo database only; the port is published to localhost only
 # 127.0.0.1, not "localhost": on Windows localhost tries IPv6 first, and the Docker port is IPv4-only,
 # which adds about 3 seconds to every connection.
-DATABASE_URL = os.environ.get("DATABASE_URL", f"postgresql://{DB_USER}:{DB_PASSWORD}@127.0.0.1:{PORT}/{DB_NAME}")
+# Hosted (Vercel + Neon): the integration sets DATABASE_URL (some setups name it POSTGRES_URL).
+DATABASE_URL = (os.environ.get("DATABASE_URL") or os.environ.get("POSTGRES_URL")
+                or f"postgresql://{DB_USER}:{DB_PASSWORD}@127.0.0.1:{PORT}/{DB_NAME}")
 SCHEMA = Path(__file__).with_name("schema.sql")
 
 
@@ -46,14 +48,33 @@ class DatabaseUnavailable(RuntimeError):
     pass
 
 
+_schema_ready = False
+
+
+def _ensure_schema(conn) -> None:
+    """Create the tables and seed the test users the first time this process meets an empty database,
+    so a fresh hosted database needs no setup command. An advisory lock stops two server instances that
+    start at once from both doing it."""
+    global _schema_ready
+    if _schema_ready:
+        return
+    with conn.transaction():
+        conn.execute("SELECT pg_advisory_xact_lock(4242)")
+        if conn.execute("SELECT to_regclass('public.users') AS t").fetchone()["t"] is None:
+            conn.execute(SCHEMA.read_text(encoding="utf-8"))
+            conn.execute(SEED.read_text(encoding="utf-8"))
+    _schema_ready = True
+
+
 @contextmanager
 def connect():
     """One short-lived connection per request; commits on success, rolls back on error."""
     try:
-        conn = psycopg.connect(DATABASE_URL, row_factory=dict_row, connect_timeout=3)
+        conn = psycopg.connect(DATABASE_URL, row_factory=dict_row, connect_timeout=5)
     except psycopg.OperationalError as e:
         raise DatabaseUnavailable(str(e)) from e
     try:
+        _ensure_schema(conn)
         with conn:
             yield conn
     finally:

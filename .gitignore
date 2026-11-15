@@ -33,3 +33,6 @@ models/*.joblib
 # Local PostgreSQL cluster for the social features (python -m backend.db setup)
 data/postgres/
 data/postgres.log
+
+.vercel
+.env*

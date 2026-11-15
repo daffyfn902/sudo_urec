@@ -28,6 +28,8 @@ from contextlib import contextmanager
 from pathlib import Path
 
 import psycopg
+
+import clock
 from psycopg.rows import dict_row
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -74,6 +76,8 @@ def connect():
     except psycopg.OperationalError as e:
         raise DatabaseUnavailable(str(e)) from e
     try:
+        # Dates like CURRENT_DATE ("today", past lifts) in UREC's time zone, not the server's UTC
+        conn.execute(f"SET TIME ZONE '{clock.APP_TZ}'")
         _ensure_schema(conn)
         with conn:
             yield conn

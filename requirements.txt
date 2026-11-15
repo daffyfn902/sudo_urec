@@ -1,11 +1,3 @@
-# Runtime dependencies for the hosted demo (Vercel's Python service reads this file).
-# Deliberately slim: the forecaster runs as exported numpy trees (ml/trees.py) and live readings come from
-# data/live/*.csv.gz, so LightGBM, scikit-learn, SciPy and pyarrow aren't needed here.
-# For training and local development use sim/, ml/, llm/ and backend/requirements.txt instead.
-fastapi>=0.115
-numpy>=2.0
-pandas>=2.2
-psycopg[binary]>=3.2
-httpx>=0.27
-pydantic>=2.6
-tzdata>=2024.1
+# Same as backend/requirements.txt (the file Vercel actually uses for the backend). Kept here so tools
+# that look for a root requirements.txt get the same slim server dependencies.
+-r backend/requirements.txt

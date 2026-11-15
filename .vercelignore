@@ -1,9 +1,22 @@
-# Not needed by the hosted demo
+# Files the hosted demo doesn't need. Deploys from this laptop (Vercel CLI) upload the folder as it is,
+# so local-only things are listed here too, not just in .gitignore.
+
+# local-only: dependencies, builds, caches, secrets, the local database
+node_modules/
+dist/
+.venv*/
+**/__pycache__/
+*.pyc
+.env*
+.claude/
+data/postgres/
+data/postgres.log
+*.log
+
+# not used by the hosted site
 mobile/
 reports/
 data/synthetic/
-data/postgres/
-data/postgres.log
 data/sample/
 /*.jpg
 /urec-3d.html
